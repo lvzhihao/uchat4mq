@@ -2,10 +2,22 @@
 
 
 [[projects]]
+  name = "github.com/dgrijalva/jwt-go"
+  packages = ["."]
+  revision = "d2709f9f1f31ebcda9651b03077758c1f3a0018c"
+  version = "v3.0.0"
+
+[[projects]]
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
   revision = "629574ca2a5df945712d3079857300b5e4da0236"
   version = "v1.4.2"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/golang/protobuf"
+  packages = ["proto"]
+  revision = "130e6b02ab059e7b717a096f397c5b60111cae74"
 
 [[projects]]
   branch = "master"
@@ -20,10 +32,28 @@
   version = "v1.0"
 
 [[projects]]
+  name = "github.com/labstack/echo"
+  packages = [".","middleware"]
+  revision = "cec7629194fe4bf83b0c72d9a02d340c7a1468ac"
+  version = "3.2.3"
+
+[[projects]]
   name = "github.com/labstack/gommon"
-  packages = ["color","log"]
+  packages = ["bytes","color","log","random"]
   revision = "779b8a8b9850a97acba6a3fe20feb628c39e17c1"
   version = "0.2.2"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/lvzhihao/goutils"
+  packages = ["."]
+  revision = "8313e398aa27a81ab19f43f31e1f3a1f6a8ea95e"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/lvzhihao/uchatlib"
+  packages = ["."]
+  revision = "69f605b212ee3df568dc07ae38ef582933892929"
 
 [[projects]]
   name = "github.com/magiconair/properties"
@@ -99,6 +129,18 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/streadway/amqp"
+  packages = ["."]
+  revision = "2cbfe40c9341ad63ba23e53013b3ddc7989d801c"
+
+[[projects]]
+  name = "github.com/tylerb/graceful"
+  packages = ["."]
+  revision = "4654dfbb6ad53cb5e27f37d99b02e16c1872fbbb"
+  version = "v1.2.15"
+
+[[projects]]
+  branch = "master"
   name = "github.com/valyala/bytebufferpool"
   packages = ["."]
   revision = "e746df99fe4a3986f4d4f79e13c1e0117ce9c2f7"
@@ -108,6 +150,12 @@
   name = "github.com/valyala/fasttemplate"
   packages = ["."]
   revision = "dcecefd839c4193db0d35b88ec65b4c12d360ab0"
+
+[[projects]]
+  name = "github.com/vmihailenco/msgpack"
+  packages = [".","codes"]
+  revision = "de4b4857c10538d591bee30e8114176008f8b9d0"
+  version = "v3.1.2"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -129,6 +177,18 @@
 
 [[projects]]
   branch = "master"
+  name = "golang.org/x/crypto"
+  packages = ["acme","acme/autocert"]
+  revision = "7d9177d70076375b9a59c8fde23d52d9c4a7ecd5"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/net"
+  packages = ["context"]
+  revision = "0744d001aa8470aaa53df28d32e5ceeb8af9bd70"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
   revision = "2320a9c15898af1b1b24f99700d5c1e957f9d8cf"
@@ -140,14 +200,26 @@
   revision = "1cbadb444a806fd9430d14ad08967ed91da4fa0a"
 
 [[projects]]
+  name = "google.golang.org/appengine"
+  packages = [".","datastore","internal","internal/app_identity","internal/base","internal/datastore","internal/log","internal/modules","internal/remote_api"]
+  revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   revision = "eb3733d160e74a9c7e442f435eb3bea458e1d19f"
 
+[[projects]]
+  name = "qiniupkg.com/x"
+  packages = ["log.v7"]
+  revision = "946c4a16076d6d98aeb78619e2bd4012357f7228"
+  version = "v7.0.8"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "50cbd1785dfcd07dc2df61937ad1553aaf98bcda4b0fbcdc17280a5aa6da27e9"
+  inputs-digest = "620cbf2bc57ba449940c2e9a4aef00d4ebe8360dfbf6ff183f0f1d3e99088118"
   solver-name = "gps-cdcl"
   solver-version = 1
