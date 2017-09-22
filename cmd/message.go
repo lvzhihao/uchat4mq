@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"os"
 
-	log "qiniupkg.com/x/log.v7"
-
 	"github.com/lvzhihao/uchat4mq/libs"
 	"github.com/lvzhihao/uchatlib"
 	"github.com/spf13/cobra"
@@ -61,15 +59,13 @@ var messageCmd = &cobra.Command{
 }
 
 func processMessage(msg amqp.Delivery, logger *zap.Logger) {
-	logger.Sugar().Info(msg.Body)
 	ret, err := uchatlib.ConvertUchatMessage(msg.Body)
-	logger.Sugar().Fatal(ret, err)
 	if err != nil {
 		msg.Ack(false)
 		logger.Error("process error", zap.Error(err), zap.Any("msg", msg))
 	} else {
 		for _, v := range ret {
-			log.Fatal(v)
+			logger.Sugar().Fatal(v)
 		}
 	}
 }

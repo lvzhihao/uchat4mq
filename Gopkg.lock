@@ -211,15 +211,9 @@
   packages = ["."]
   revision = "eb3733d160e74a9c7e442f435eb3bea458e1d19f"
 
-[[projects]]
-  name = "qiniupkg.com/x"
-  packages = ["log.v7"]
-  revision = "946c4a16076d6d98aeb78619e2bd4012357f7228"
-  version = "v7.0.8"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "620cbf2bc57ba449940c2e9a4aef00d4ebe8360dfbf6ff183f0f1d3e99088118"
+  inputs-digest = "ada58fc0b1de928e8fbb39b593205d7f062f0527fd51360a1caf4b1c0a667196"
   solver-name = "gps-cdcl"
   solver-version = 1
