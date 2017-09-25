@@ -61,7 +61,7 @@ var messageCmd = &cobra.Command{
 func processMessage(msg amqp.Delivery, logger *zap.Logger) {
 	ret, err := uchatlib.ConvertUchatMessage(msg.Body)
 	if err != nil {
-		msg.Ack(false)
+		msg.Ack(false) //先消费掉，避免队列堵塞
 		logger.Error("process error", zap.Error(err), zap.Any("msg", msg))
 	} else {
 		for _, v := range ret {

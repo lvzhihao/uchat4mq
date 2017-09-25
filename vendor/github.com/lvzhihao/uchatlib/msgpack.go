@@ -45,14 +45,13 @@ func ConvertUchatMessage(b []byte) ([]*UchatMessage, error) {
 		return nil, err
 	}
 	ret := make([]*UchatMessage, 0)
-	loc, _ := time.LoadLocation("Asia/Shanghai")
 	for _, v := range list {
 		msg := &UchatMessage{}
 		msg.MerchantNo = goutils.ToString(merchantNo)
 		msg.LogSerialNo = goutils.ToString(v["vcSerialNo"])
 		msg.ChatRoomSerialNo = goutils.ToString(v["vcChatRoomSerialNo"])
 		msg.WxUserSerialNo = goutils.ToString(v["vcFromWxUserSerialNo"])
-		msg.MsgTime, _ = time.ParseInLocation("2006-01-02 15:04:05", goutils.ToString(v["dtMsgTime"]), loc)
+		msg.MsgTime, _ = time.ParseInLocation("2006-01-02 15:04:05", goutils.ToString(v["dtMsgTime"]), UchatTimeLocation)
 		msg.MsgType = goutils.ToInt32(v["nMsgType"])
 		content, err := base64.StdEncoding.DecodeString(goutils.ToString(v["vcContent"]))
 		if err != nil {

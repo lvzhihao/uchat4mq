@@ -58,7 +58,14 @@ func (c *receiveConsumer) Consumer(queue string, prefetchCount int, handle func(
 			continue
 		}
 		for msg := range deliveries {
-			go handle(msg, c.logger)
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						c.logger.Error("process recover", zap.Any("panic", r))
+					}
+				}()
+				handle(msg, c.logger)
+			}()
 		}
 		c.conn.Close()
 		c.logger.Info("Consumer ReConnection After 3 Second")
