@@ -47,14 +47,14 @@ var messageCmd = &cobra.Command{
 		}
 		defer logger.Sync()
 
-		consumer, err := libs.NewReceiveConsumer(
+		consumer, err := libs.NewConsumerTool(
 			fmt.Sprintf("amqp://%s:%s@%s/%s", viper.GetString("rabbitmq_user"), viper.GetString("rabbitmq_passwd"), viper.GetString("rabbitmq_host"), viper.GetString("rabbitmq_vhost")),
 			logger,
 		)
 		if err != nil {
 			logger.Fatal("consumer create error", zap.Error(err))
 		}
-		consumer.Consumer("uchat.chat.message", 1, processMessage) //尽量保证聊天记录的时序，以api回调接口收到消息进入receive队列为准
+		consumer.Consume("uchat.chat.message", 1, processMessage) //尽量保证聊天记录的时序，以api回调接口收到消息进入receive队列为准
 	},
 }
 

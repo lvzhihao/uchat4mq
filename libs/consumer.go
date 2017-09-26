@@ -8,51 +8,54 @@ import (
 	"go.uber.org/zap"
 )
 
-type receiveConsumer struct {
-	amqpUrl string
-	conn    *amqp.Connection
-	logger  *zap.Logger
+type ConsumerTool struct {
+	amqpUrl   string
+	logger    *zap.Logger
+	RetryTime time.Duration
 }
 
-func NewReceiveConsumer(url string, logger *zap.Logger) (*receiveConsumer, error) {
-	c := &receiveConsumer{
-		amqpUrl: url,
-		logger:  logger,
+func NewConsumerTool(url string, logger *zap.Logger) (*ConsumerTool, error) {
+	c := &ConsumerTool{
+		amqpUrl:   url,
+		logger:    logger,
+		RetryTime: time.Second * 3,
 	}
 	// first test dial
 	_, err := amqp.Dial(url)
 	return c, err
 }
 
-func (c *receiveConsumer) link(queue string, prefetchCount int) (<-chan amqp.Delivery, error) {
-	var err error
-	c.conn, err = amqp.Dial(c.amqpUrl)
+func (c *ConsumerTool) link(queue string, prefetchCount int) (*amqp.Connection, <-chan amqp.Delivery, error) {
+	conn, err := amqp.Dial(c.amqpUrl)
 	if err != nil {
 		c.logger.Error("amqp.open", zap.Error(err))
-		return nil, err
+		return nil, nil, err
 	}
-	_, err = c.conn.Channel()
+	_, err = conn.Channel()
 	if err != nil {
 		c.logger.Error("channel.open", zap.Error(err))
-		return nil, err
+		conn.Close()
+		return nil, nil, err
 	}
-	channel, _ := c.conn.Channel()
+	channel, _ := conn.Channel()
 	if err := channel.Qos(prefetchCount, 0, false); err != nil {
 		c.logger.Error("channel.qos", zap.Error(err))
-		return nil, err
+		conn.Close()
+		return nil, nil, err
 	}
 	deliveries, err := channel.Consume(queue, "ctag-"+goutils.RandomString(20), false, false, false, false, nil)
 	if err != nil {
 		c.logger.Error("base.consume", zap.Error(err))
-		return deliveries, err
+		conn.Close()
+		return nil, nil, err
 	}
-	return deliveries, nil
+	return conn, deliveries, nil
 }
 
-func (c *receiveConsumer) Consumer(queue string, prefetchCount int, handle func(msg amqp.Delivery, logger *zap.Logger)) {
+func (c *ConsumerTool) Consume(queue string, prefetchCount int, handle func(msg amqp.Delivery, logger *zap.Logger)) {
 	for {
-		time.Sleep(3 * time.Second)
-		deliveries, err := c.link(queue, prefetchCount)
+		time.Sleep(c.RetryTime)
+		conn, deliveries, err := c.link(queue, prefetchCount)
 		if err != nil {
 			c.logger.Error("Consumer Link Error", zap.Error(err))
 			continue
@@ -67,7 +70,7 @@ func (c *receiveConsumer) Consumer(queue string, prefetchCount int, handle func(
 				handle(msg, c.logger)
 			}()
 		}
-		c.conn.Close()
-		c.logger.Info("Consumer ReConnection After 3 Second")
+		conn.Close()
+		c.logger.Info("Consumer ReConnection After RetryTime", zap.Duration("retryTime", c.RetryTime))
 	}
 }
