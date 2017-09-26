@@ -1,0 +1,14 @@
+version: '3'
+services:
+  uchat2mq:
+    image: edwinlll/uchat4mq:latest
+    restart: always
+    environment:
+      - TZ=Asia/Shanghai
+      - DEBUG=false
+    volumes:
+      - ./.uchat4mq.yaml:/go/src/github.com/lvzhihao/uchat4mq/.uchat4mq.yaml
+    command: >
+      sh -c "ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && 
+      echo $TZ > /etc/timezone &&
+      go-wrapper run message"
