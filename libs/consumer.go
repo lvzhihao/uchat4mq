@@ -18,7 +18,7 @@ func NewConsumerTool(url string, logger *zap.Logger) (*ConsumerTool, error) {
 	c := &ConsumerTool{
 		amqpUrl:   url,
 		logger:    logger,
-		RetryTime: time.Second * 3,
+		RetryTime: time.Second * 3, //default retry
 	}
 	// first test dial
 	_, err := amqp.Dial(url)

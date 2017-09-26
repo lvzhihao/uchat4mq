@@ -3,19 +3,22 @@ package libs
 import (
 	"time"
 
+	"github.com/lvzhihao/goutils"
 	"github.com/streadway/amqp"
 	"go.uber.org/zap"
 )
 
 type PublisherTool struct {
-	logger   *zap.Logger
-	channels map[string]*publishChannel
+	logger    *zap.Logger
+	channels  map[string]*publishChannel
+	RetryTime time.Duration
 }
 
-func NewPublisherTool(logger *zap.Logger, url, exchange string, routeKeys []string) (*PublisherTool, error) {
+func NewPublisherTool(url, exchange string, routeKeys []string, logger *zap.Logger) (*PublisherTool, error) {
 	tool := &PublisherTool{
-		logger:   logger,
-		channels: make(map[string]*publishChannel, 0),
+		logger:    logger,
+		channels:  make(map[string]*publishChannel, 0),
+		RetryTime: time.Second * 3, //default retry
 	}
 	err := tool.conn(url, exchange, routeKeys)
 	return tool, err
@@ -32,23 +35,50 @@ func (c *PublisherTool) conn(url, exchange string, routeKeys []string) error {
 			amqpUrl:  url,
 			exchange: exchange,
 			routeKey: route,
-			Channel:  make(chan amqp.Publishing, 1000),
+			Channel:  make(chan interface{}, 1000),
 		}
 		go c.channels[route].Receive()
 	}
 	return nil
 }
 
+func (c *PublisherTool) publish(route string, msg interface{}) {
+	if s, ok := c.channels[route]; ok {
+		s.Channel <- msg
+	}
+}
+
 func (c *PublisherTool) Publish(route string, msg amqp.Publishing) {
-	c.channels[route].Channel <- msg
+	c.publish(route, msg)
+}
+
+func (c *PublisherTool) PublishExt(route, fix string, msg amqp.Publishing) {
+	c.publish(route, &publishingExt{
+		routeKeyFix: fix,
+		msg:         msg,
+	})
+}
+
+type publishingExt struct {
+	routeKeyFix string
+	msg         amqp.Publishing
+}
+
+func (c *publishingExt) Key(prefix string) string {
+	return prefix + c.routeKeyFix
+}
+
+func (c *publishingExt) Msg() amqp.Publishing {
+	return c.msg
 }
 
 type publishChannel struct {
-	logger   *zap.Logger
-	amqpUrl  string
-	exchange string
-	routeKey string
-	Channel  chan amqp.Publishing
+	logger    *zap.Logger
+	amqpUrl   string
+	exchange  string
+	routeKey  string
+	retryTime time.Duration
+	Channel   chan interface{}
 }
 
 func (c *publishChannel) Receive() {
@@ -77,19 +107,32 @@ BreakFor:
 	for {
 		select {
 		case msg := <-c.Channel:
-			if string(msg.Body) == "quit" {
-				c.logger.Info("Channel Connection Quit", zap.String("route", c.routeKey))
-				conn.Close()
-				return
-			} //quit
-			err := channel.Publish(c.exchange, c.routeKey, false, false, msg)
-			if err != nil {
-				c.Channel <- msg
-				conn.Close()
-				c.logger.Error("Channel Connection Error 4", zap.String("route", c.routeKey), zap.Error(err))
-				break BreakFor
+			switch msg.(type) {
+			case string:
+				if goutils.ToString(msg) == "quit" {
+					c.logger.Info("Channel Connection Quit", zap.String("route", c.routeKey))
+					conn.Close()
+					return
+				} //quit
+			case amqp.Publishing:
+				err := channel.Publish(c.exchange, c.routeKey, false, false, msg.(amqp.Publishing))
+				if err != nil {
+					c.Channel <- msg
+					conn.Close()
+					c.logger.Error("Channel Connection Error 4", zap.String("route", c.routeKey), zap.Error(err))
+					break BreakFor
+				}
+			case *publishingExt:
+				err := channel.Publish(c.exchange, msg.(*publishingExt).Key(c.routeKey), false, false, msg.(*publishingExt).Msg())
+				if err != nil {
+					c.Channel <- msg
+					conn.Close()
+					c.logger.Error("Channel Connection Error 4", zap.String("route", c.routeKey), zap.Error(err))
+					break BreakFor
+				}
 			}
 		}
 	}
+	time.Sleep(3 * time.Second)
 	goto RetryConnect
 }

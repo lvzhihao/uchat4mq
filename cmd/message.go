@@ -23,13 +23,19 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/lvzhihao/uchat4mq/libs"
 	"github.com/lvzhihao/uchatlib"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
+	"github.com/vmihailenco/msgpack"
 	"go.uber.org/zap"
+)
+
+var (
+	publisher *libs.PublisherTool
 )
 
 // messageCmd represents the message command
@@ -47,6 +53,17 @@ var messageCmd = &cobra.Command{
 		}
 		defer logger.Sync()
 
+		var err error
+		publisher, err = libs.NewPublisherTool(
+			fmt.Sprintf("amqp://%s:%s@%s/%s", viper.GetString("rabbitmq_user"), viper.GetString("rabbitmq_passwd"), viper.GetString("rabbitmq_host"), viper.GetString("rabbitmq_vhost")),
+			viper.GetString("rabbitmq_message_exchange_name"),
+			[]string{"uchat.process.message"},
+			logger,
+		)
+		if err != nil {
+			logger.Fatal("publisher create error", zap.Error(err))
+		}
+
 		consumer, err := libs.NewConsumerTool(
 			fmt.Sprintf("amqp://%s:%s@%s/%s", viper.GetString("rabbitmq_user"), viper.GetString("rabbitmq_passwd"), viper.GetString("rabbitmq_host"), viper.GetString("rabbitmq_vhost")),
 			logger,
@@ -58,6 +75,10 @@ var messageCmd = &cobra.Command{
 	},
 }
 
+func FetchRouteFix(v *uchatlib.UchatMessage) string {
+	return fmt.Sprintf(".%s.%d.%s", v.ChatRoomSerialNo, v.MsgType, v.WxUserSerialNo) // .roomid.type.userid
+}
+
 func processMessage(msg amqp.Delivery, logger *zap.Logger) {
 	ret, err := uchatlib.ConvertUchatMessage(msg.Body)
 	if err != nil {
@@ -65,7 +86,18 @@ func processMessage(msg amqp.Delivery, logger *zap.Logger) {
 		logger.Error("process error", zap.Error(err), zap.Any("msg", msg))
 	} else {
 		for _, v := range ret {
-			logger.Sugar().Fatal(v)
+			b, err := msgpack.Marshal(v)
+			if err != nil {
+				logger.Error("msgpack error", zap.Error(err))
+				continue
+			}
+			publisher.PublishExt("uchat.process.message", FetchRouteFix(v), amqp.Publishing{
+				DeliveryMode: amqp.Persistent,
+				Timestamp:    time.Now(),
+				ContentType:  "application/msgpack",
+				Body:         b,
+			})
+			msg.Ack(false)
 		}
 	}
 }
