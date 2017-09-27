@@ -1,6 +1,6 @@
 version: '3'
 services:
-  uchat2mq:
+  uchat4mq:
     image: edwinlll/uchat4mq:latest
     restart: always
     environment:
