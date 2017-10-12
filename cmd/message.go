@@ -71,7 +71,7 @@ var messageCmd = &cobra.Command{
 		if err != nil {
 			logger.Fatal("consumer create error", zap.Error(err))
 		}
-		consumer.Consume("uchat.chat.message", 1, processMessage) //尽量保证聊天记录的时序，以api回调接口收到消息进入receive队列为准
+		consumer.Consume(viper.GetString("uchat_receive_message_queue"), 1, processMessage) //尽量保证聊天记录的时序，以api回调接口收到消息进入receive队列为准
 	},
 }
 
