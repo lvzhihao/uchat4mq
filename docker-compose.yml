@@ -9,6 +9,6 @@ services:
     volumes:
       - ./.uchat4mq.yaml:/go/src/github.com/lvzhihao/uchat4mq/.uchat4mq.yaml
     command: >
-      sh -c "ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && 
-      echo $TZ > /etc/timezone &&
+      sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
+      echo $${TZ} > /etc/timezone &&
       go-wrapper run message"
