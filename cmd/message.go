@@ -56,7 +56,7 @@ var messageCmd = &cobra.Command{
 		var err error
 		publisher, err = libs.NewPublisherTool(
 			fmt.Sprintf("amqp://%s:%s@%s/%s", viper.GetString("rabbitmq_user"), viper.GetString("rabbitmq_passwd"), viper.GetString("rabbitmq_host"), viper.GetString("rabbitmq_vhost")),
-			viper.GetString("rabbitmq_message_exchange_name"),
+			viper.GetString("rabbitmq_msginfo_exchange_name"),
 			[]string{"uchat.process.message"},
 			logger,
 		)
