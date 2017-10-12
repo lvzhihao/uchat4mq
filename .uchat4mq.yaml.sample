@@ -5,7 +5,7 @@ rabbitmq_user: uchat
 rabbitmq_passwd: uchat
 rabbitmq_vhost: uchat
 rabbitmq_receive_exchange_name: uchat_receive
-rabbitmq_message_exchange_name: uchat_message
+rabbitmq_msginfo_exchange_name: uchat_msginfo
 
 # message queue
 uchat_receive_message_queue: uchat.chat.message
