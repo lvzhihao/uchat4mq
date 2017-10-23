@@ -6,5 +6,3 @@ WORKDIR /go/src/github.com/lvzhihao/uchat4mq
 
 RUN rm -f /go/src/github.com/lvzhihao/uchat4mq/.uchat4mq.yaml
 RUN go-wrapper install
-
-CMD ["go-wrapper", "run", "message"]

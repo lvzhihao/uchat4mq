@@ -25,7 +25,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/lvzhihao/uchat4mq/libs"
+	uchat4mq "github.com/lvzhihao/uchat4mq/libs"
 	"github.com/lvzhihao/uchatlib"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	publisher *libs.PublisherTool
+	publisher *uchat4mq.PublisherTool
 )
 
 // messageCmd represents the message command
@@ -53,8 +53,32 @@ var messageCmd = &cobra.Command{
 		}
 		defer logger.Sync()
 
+		//migrate msginfo exchange
+		if err := uchat4mq.CreateExchange(
+			viper.GetString("rabbitmq_api"),
+			viper.GetString("rabbitmq_user"),
+			viper.GetString("rabbitmq_passwd"),
+			viper.GetString("rabbitmq_vhost"),
+			viper.GetString("rabbitmq_msginfo_exchange_name"),
+		); err != nil {
+			logger.Fatal("migrate msginfo_exchange error", zap.Error(err))
+		}
+
+		//migrate 4pre message for receive exchange
+		if err := uchat4mq.RegisterQueue(
+			viper.GetString("rabbitmq_api"),
+			viper.GetString("rabbitmq_user"),
+			viper.GetString("rabbitmq_passwd"),
+			viper.GetString("rabbitmq_vhost"),
+			viper.GetString("uchat_receive_message_queue_name"),
+			viper.GetString("rabbitmq_receive_exchange_name"),
+			viper.GetStringSlice("uchat_receive_message_queue_keys"),
+		); err != nil {
+			logger.Fatal("migrate message_queue error", zap.Error(err))
+		}
+
 		var err error
-		publisher, err = libs.NewPublisherTool(
+		publisher, err = uchat4mq.NewPublisherTool(
 			fmt.Sprintf("amqp://%s:%s@%s/%s", viper.GetString("rabbitmq_user"), viper.GetString("rabbitmq_passwd"), viper.GetString("rabbitmq_host"), viper.GetString("rabbitmq_vhost")),
 			viper.GetString("rabbitmq_msginfo_exchange_name"),
 			[]string{"uchat.process.message"},
@@ -64,14 +88,14 @@ var messageCmd = &cobra.Command{
 			logger.Fatal("publisher create error", zap.Error(err))
 		}
 
-		consumer, err := libs.NewConsumerTool(
+		consumer, err := uchat4mq.NewConsumerTool(
 			fmt.Sprintf("amqp://%s:%s@%s/%s", viper.GetString("rabbitmq_user"), viper.GetString("rabbitmq_passwd"), viper.GetString("rabbitmq_host"), viper.GetString("rabbitmq_vhost")),
 			logger,
 		)
 		if err != nil {
 			logger.Fatal("consumer create error", zap.Error(err))
 		}
-		consumer.Consume(viper.GetString("uchat_receive_message_queue"), 1, processMessage) //尽量保证聊天记录的时序，以api回调接口收到消息进入receive队列为准
+		consumer.Consume(viper.GetString("uchat_receive_message_queue_name"), 1, processMessage) //尽量保证聊天记录的时序，以api回调接口收到消息进入receive队列为准
 	},
 }
 

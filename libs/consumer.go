@@ -1,4 +1,4 @@
-package libs
+package uchat4mq
 
 import (
 	"time"
