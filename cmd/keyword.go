@@ -34,15 +34,11 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	publisher *uchat4mq.PublisherTool
-)
-
-// messageCmd represents the message command
-var messageCmd = &cobra.Command{
-	Use:   "message",
-	Short: "convert uchat message",
-	Long:  `convert uchat message`,
+// keywordCmd represents the keyword command
+var keywordCmd = &cobra.Command{
+	Use:   "keyword",
+	Short: "convert uchat keyword",
+	Long:  `convert uchat keyword`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// zap logger
 		var logger *zap.Logger
@@ -70,18 +66,18 @@ var messageCmd = &cobra.Command{
 			viper.GetString("rabbitmq_user"),
 			viper.GetString("rabbitmq_passwd"),
 			viper.GetString("rabbitmq_vhost"),
-			viper.GetString("uchat_receive_message_queue_name"),
+			viper.GetString("uchat_receive_keyword_queue_name"),
 			viper.GetString("rabbitmq_receive_exchange_name"),
-			viper.GetStringSlice("uchat_receive_message_queue_keys"),
+			viper.GetStringSlice("uchat_receive_keyword_queue_keys"),
 		); err != nil {
-			logger.Fatal("migrate message_queue error", zap.Error(err))
+			logger.Fatal("migrate keyword_queue error", zap.Error(err))
 		}
 
 		var err error
 		publisher, err = uchat4mq.NewPublisherTool(
 			fmt.Sprintf("amqp://%s:%s@%s/%s", viper.GetString("rabbitmq_user"), viper.GetString("rabbitmq_passwd"), viper.GetString("rabbitmq_host"), viper.GetString("rabbitmq_vhost")),
 			viper.GetString("rabbitmq_msginfo_exchange_name"),
-			[]string{"uchat.process.message"},
+			[]string{"uchat.process.keyword"},
 			logger,
 		)
 		if err != nil {
@@ -95,16 +91,16 @@ var messageCmd = &cobra.Command{
 		if err != nil {
 			logger.Fatal("consumer create error", zap.Error(err))
 		}
-		consumer.Consume(viper.GetString("uchat_receive_message_queue_name"), 1, processMessage) //尽量保证聊天记录的时序，以api回调接口收到消息进入receive队列为准
+		consumer.Consume(viper.GetString("uchat_receive_keyword_queue_name"), 1, processKeyword) //尽量保证聊天记录的时序，以api回调接口收到消息进入receive队列为准
 	},
 }
 
-func FetchMessageRouteFix(v *uchatlib.UchatMessage) string {
-	return fmt.Sprintf(".%s.%d.%s", v.ChatRoomSerialNo, v.MsgType, v.WxUserSerialNo) // .roomid.type.userid
+func FetchKeywordRouteFix(v *uchatlib.UchatKeyword) string {
+	return fmt.Sprintf(".%s.%s.%s", v.ChatRoomSerialNo, v.FromWxUserSerialNo, v.ToWxUserSerialNo) // .roomid.type.userid
 }
 
-func processMessage(msg amqp.Delivery, logger *zap.Logger) {
-	ret, err := uchatlib.ConvertUchatMessage(msg.Body)
+func processKeyword(msg amqp.Delivery, logger *zap.Logger) {
+	ret, err := uchatlib.ConvertUchatKeyword(msg.Body)
 	if err != nil {
 		msg.Ack(false) //先消费掉，避免队列堵塞
 		logger.Error("process error", zap.Error(err), zap.Any("msg", msg))
@@ -115,7 +111,7 @@ func processMessage(msg amqp.Delivery, logger *zap.Logger) {
 				logger.Error("msgpack error", zap.Error(err))
 				continue
 			}
-			publisher.PublishExt("uchat.process.message", FetchMessageRouteFix(v), amqp.Publishing{
+			publisher.PublishExt("uchat.process.keyword", FetchKeywordRouteFix(v), amqp.Publishing{
 				DeliveryMode: amqp.Persistent,
 				Timestamp:    time.Now(),
 				ContentType:  "application/msgpack",
@@ -127,16 +123,16 @@ func processMessage(msg amqp.Delivery, logger *zap.Logger) {
 }
 
 func init() {
-	RootCmd.AddCommand(messageCmd)
+	RootCmd.AddCommand(keywordCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// messageCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// keywordCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// messageCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// keywordCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 }
