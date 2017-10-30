@@ -31,13 +31,12 @@ func (c *ConsumerTool) link(queue string, prefetchCount int) (*amqp.Connection, 
 		c.logger.Error("amqp.open", zap.Error(err))
 		return nil, nil, err
 	}
-	_, err = conn.Channel()
+	channel, err := conn.Channel()
 	if err != nil {
 		c.logger.Error("channel.open", zap.Error(err))
 		conn.Close()
 		return nil, nil, err
 	}
-	channel, _ := conn.Channel()
 	if err := channel.Qos(prefetchCount, 0, false); err != nil {
 		c.logger.Error("channel.qos", zap.Error(err))
 		conn.Close()
