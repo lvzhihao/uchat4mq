@@ -34,6 +34,10 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	publisher *uchat4mq.PublisherTool
+)
+
 // keywordCmd represents the keyword command
 var keywordCmd = &cobra.Command{
 	Use:   "keyword",

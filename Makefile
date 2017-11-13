@@ -3,8 +3,11 @@ OS := $(shell uname)
 build: */*.go
 	go build 
 
-receive:
-	./uchat4mq receive
+dev:
+	DEBUG=true go run main.go message
+
+message:
+	./uchat4mq message
 
 migrate: build
 	./uchat4mq migrate
