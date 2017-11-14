@@ -21,9 +21,7 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/lvzhihao/uchat4mq/rmqtool"
@@ -35,71 +33,16 @@ import (
 	"go.uber.org/zap"
 )
 
-type Config struct {
-	Consumer struct {
-		Conn  rmqtool.ConnectConfig
-		Queue rmqtool.QueueConfig
-	}
-	Publisher struct {
-		Conn     rmqtool.ConnectConfig
-		Exchange string
-		Key      string
-	}
-}
-
-func (c *Config) Load(key string) error {
-	return viper.UnmarshalKey(key, c)
-}
-
-func (c *Config) ConsumerQueue() (*rmqtool.Queue, error) {
-	if c.Consumer.Queue.Name == "" {
-		return nil, errors.New("empty consumer queue name")
-	} else {
-		conn := rmqtool.Conn(c.Consumer.Conn)
-		queue := conn.ApplyQueue(c.Consumer.Queue.Name)
-		err := queue.Ensure(c.Consumer.Queue.Bindlist)
-		return queue, err
-	}
-}
-
-func (c *Config) PublisherTool() (*rmqtool.PublisherTool, error) {
-	conn := rmqtool.Conn(c.Publisher.Conn)
-	if c.Publisher.Key == "" {
-		return nil, errors.New("empty publisher key")
-	} else if err := conn.CreateExchange(c.Publisher.Exchange); err != nil {
-		return nil, err
-	} else {
-		return conn.ApplyPublisher(c.Publisher.Exchange, []string{c.Publisher.Key})
-	}
-}
-
-func (c *Config) PublisherKey() string {
-	return c.Publisher.Key
-}
-
-func LoadConfig(key string) (*Config, error) {
-	config := &Config{}
-	err := config.Load(key)
-	return config, err
-}
-
-var logger *zap.Logger
-
-func init() {
-	if os.Getenv("DEBUG") == "true" {
-		logger, _ = zap.NewDevelopment()
-	} else {
-		logger, _ = zap.NewProduction()
-	}
-	defer logger.Sync()
-}
-
 // messageCmd represents the message command
 var messageCmd = &cobra.Command{
 	Use:   "message",
 	Short: "convert uchat message",
 	Long:  `convert uchat message`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// zap logger
+		logger := GetLogger()
+		defer logger.Sync()
+		// rmqtool config
 		rmqtool.DefaultConsumerToolName = viper.GetString("global_consumer_flag")
 		// load config
 		config, err := LoadConfig("message_config")
@@ -115,7 +58,7 @@ var messageCmd = &cobra.Command{
 
 		publisher, err := config.PublisherTool()
 		if err != nil {
-			logger.Fatal("migrate message_publisher error", zap.Error(err))
+			logger.Fatal("call message_publisher error", zap.Error(err))
 		}
 
 		queue.Consume(1, func(msg amqp.Delivery) {

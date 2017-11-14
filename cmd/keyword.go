@@ -22,7 +22,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	uchat4mq "github.com/lvzhihao/uchat4mq/libs"
@@ -45,12 +44,7 @@ var keywordCmd = &cobra.Command{
 	Long:  `convert uchat keyword`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// zap logger
-		var logger *zap.Logger
-		if os.Getenv("DEBUG") == "true" {
-			logger, _ = zap.NewDevelopment()
-		} else {
-			logger, _ = zap.NewProduction()
-		}
+		logger := GetLogger()
 		defer logger.Sync()
 
 		//migrate msginfo exchange

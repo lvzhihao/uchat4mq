@@ -9,9 +9,8 @@ import (
 )
 
 var (
-	ConsumerDefaultRetryTime    time.Duration = 3 * time.Second
-	ConsumerDefaultNoticeLength int           = 100
-	DefaultConsumerToolName     string        = "golang.rmqtool"
+	DefaultConsumerRetryTime time.Duration = 3 * time.Second
+	DefaultConsumerToolName  string        = "golang.rmqtool"
 )
 
 func GenerateConsumerName(name string) string {
@@ -33,7 +32,7 @@ type ConsumerTool struct {
 func NewConsumerTool(url string) (*ConsumerTool, error) {
 	c := &ConsumerTool{
 		amqpUrl:   url,                      //rmq link
-		RetryTime: ConsumerDefaultRetryTime, //default retry
+		RetryTime: DefaultConsumerRetryTime, //default retry
 		isClosed:  false,
 		name:      DefaultConsumerToolName,
 	}

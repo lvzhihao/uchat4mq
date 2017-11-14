@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	PublisherDefaultRetryTime time.Duration = 3 * time.Second
+	DefaultPublisherRetryTime time.Duration = 3 * time.Second
 )
 
 type PublisherTool struct {
@@ -19,7 +19,7 @@ type PublisherTool struct {
 func NewPublisherTool(url, exchange string, routeKeys []string) (*PublisherTool, error) {
 	tool := &PublisherTool{
 		channels:  make(map[string]*publishChannel, 0), //channels
-		RetryTime: PublisherDefaultRetryTime,           //default retry
+		RetryTime: DefaultPublisherRetryTime,           //default retry
 	}
 	err := tool.conn(url, exchange, routeKeys)
 	return tool, err

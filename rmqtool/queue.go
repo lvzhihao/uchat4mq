@@ -100,6 +100,7 @@ func (c *Queue) Bind(bindList []*QueueBind) error {
 			c.Name(),
 			bind.Exchange,
 			bind.Key,
+			bind.Arguments,
 		)
 		if err != nil {
 			return err
