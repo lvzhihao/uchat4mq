@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"time"
 
-	uchat4mq "github.com/lvzhihao/uchat4mq/libs"
+	"github.com/lvzhihao/uchat4mq/rmqtool"
 	"github.com/lvzhihao/uchatlib"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -33,91 +33,60 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	publisher *uchat4mq.PublisherTool
-)
-
 // keywordCmd represents the keyword command
 var keywordCmd = &cobra.Command{
 	Use:   "keyword",
 	Short: "convert uchat keyword",
 	Long:  `convert uchat keyword`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// zap logger
 		logger := GetLogger()
 		defer logger.Sync()
-
-		//migrate msginfo exchange
-		if err := uchat4mq.CreateExchange(
-			viper.GetString("rabbitmq_api"),
-			viper.GetString("rabbitmq_user"),
-			viper.GetString("rabbitmq_passwd"),
-			viper.GetString("rabbitmq_vhost"),
-			viper.GetString("rabbitmq_msginfo_exchange_name"),
-		); err != nil {
-			logger.Fatal("migrate msginfo_exchange error", zap.Error(err))
+		// rmqtool config
+		rmqtool.DefaultConsumerToolName = viper.GetString("global_consumer_flag")
+		// load config
+		config, err := LoadConfig("keyword_config")
+		if err != nil {
+			logger.Fatal("load config error", zap.Error(err))
 		}
+		logger.Debug("load keyword config success", zap.Any("config", config))
 
-		//migrate 4pre message for receive exchange
-		if err := uchat4mq.RegisterQueue(
-			viper.GetString("rabbitmq_api"),
-			viper.GetString("rabbitmq_user"),
-			viper.GetString("rabbitmq_passwd"),
-			viper.GetString("rabbitmq_vhost"),
-			viper.GetString("uchat_receive_keyword_queue_name"),
-			viper.GetString("rabbitmq_receive_exchange_name"),
-			viper.GetStringSlice("uchat_receive_keyword_queue_keys"),
-		); err != nil {
+		queue, err := config.ConsumerQueue()
+		if err != nil {
 			logger.Fatal("migrate keyword_queue error", zap.Error(err))
 		}
 
-		var err error
-		publisher, err = uchat4mq.NewPublisherTool(
-			fmt.Sprintf("amqp://%s:%s@%s/%s", viper.GetString("rabbitmq_user"), viper.GetString("rabbitmq_passwd"), viper.GetString("rabbitmq_host"), viper.GetString("rabbitmq_vhost")),
-			viper.GetString("rabbitmq_msginfo_exchange_name"),
-			[]string{"uchat.process.keyword"},
-			logger,
-		)
+		publisher, err := config.PublisherTool()
 		if err != nil {
-			logger.Fatal("publisher create error", zap.Error(err))
+			logger.Fatal("call keyword_publisher error", zap.Error(err))
 		}
 
-		consumer, err := uchat4mq.NewConsumerTool(
-			fmt.Sprintf("amqp://%s:%s@%s/%s", viper.GetString("rabbitmq_user"), viper.GetString("rabbitmq_passwd"), viper.GetString("rabbitmq_host"), viper.GetString("rabbitmq_vhost")),
-			logger,
-		)
-		if err != nil {
-			logger.Fatal("consumer create error", zap.Error(err))
-		}
-		consumer.Consume(viper.GetString("uchat_receive_keyword_queue_name"), 1, processKeyword) //尽量保证聊天记录的时序，以api回调接口收到消息进入receive队列为准
+		queue.Consume(1, func(msg amqp.Delivery) {
+			ret, err := uchatlib.ConvertUchatKeyword(msg.Body)
+			if err != nil {
+				msg.Ack(false) //先消费掉，避免队列堵塞
+				rmqtool.Log.Error("process error", zap.Error(err), zap.Any("msg", msg))
+			} else {
+				for _, v := range ret {
+					b, err := msgpack.Marshal(v)
+					if err != nil {
+						rmqtool.Log.Error("msgpack error", zap.Error(err))
+						continue
+					}
+					publisher.PublishExt(config.PublisherKey(), FetchKeywordRouteFix(v), amqp.Publishing{
+						DeliveryMode: amqp.Persistent,
+						Timestamp:    time.Now(),
+						ContentType:  "application/msgpack",
+						Body:         b,
+					})
+					msg.Ack(false)
+				}
+			}
+		}) //尽量保证聊天记录的时序，以api回调接口收到消息进入receive队列为准
 	},
 }
 
 func FetchKeywordRouteFix(v *uchatlib.UchatKeyword) string {
 	return fmt.Sprintf(".%s.%s.%s", v.ChatRoomSerialNo, v.FromWxUserSerialNo, v.ToWxUserSerialNo) // .roomid.type.userid
-}
-
-func processKeyword(msg amqp.Delivery, logger *zap.Logger) {
-	ret, err := uchatlib.ConvertUchatKeyword(msg.Body)
-	if err != nil {
-		msg.Ack(false) //先消费掉，避免队列堵塞
-		logger.Error("process error", zap.Error(err), zap.Any("msg", msg))
-	} else {
-		for _, v := range ret {
-			b, err := msgpack.Marshal(v)
-			if err != nil {
-				logger.Error("msgpack error", zap.Error(err))
-				continue
-			}
-			publisher.PublishExt("uchat.process.keyword", FetchKeywordRouteFix(v), amqp.Publishing{
-				DeliveryMode: amqp.Persistent,
-				Timestamp:    time.Now(),
-				ContentType:  "application/msgpack",
-				Body:         b,
-			})
-			msg.Ack(false)
-		}
-	}
 }
 
 func init() {
