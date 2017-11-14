@@ -4,5 +4,5 @@ WORKDIR /go/src/github.com/lvzhihao/uchat4mq
 
 COPY . . 
 
-RUN rm -f /go/src/github.com/lvzhihao/uchat4mq/.uchat4mq.yaml
-RUN go-wrapper install
+RUN go-wrapper install && \
+    rm -rf *
