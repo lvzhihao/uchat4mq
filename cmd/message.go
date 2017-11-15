@@ -44,6 +44,8 @@ var messageCmd = &cobra.Command{
 		defer logger.Sync()
 		// rmqtool config
 		rmqtool.DefaultConsumerToolName = viper.GetString("global_consumer_flag")
+		rmqtool.Log.Set(GetZapLoggerWrapperForRmqtool(logger))
+		//rmqtool.Log.Debug("logger warpper demo", "no key param", zap.Any("ccc", time.Now()), zap.Any("dddd", []string{"xx"}), "no key param again", zap.Error(errors.New("xx")))
 		// load config
 		config, err := LoadConfig("message_config")
 		if err != nil {

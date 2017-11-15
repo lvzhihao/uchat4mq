@@ -43,6 +43,7 @@ var keywordCmd = &cobra.Command{
 		defer logger.Sync()
 		// rmqtool config
 		rmqtool.DefaultConsumerToolName = viper.GetString("global_consumer_flag")
+		rmqtool.Log.Set(GetZapLoggerWrapperForRmqtool(logger))
 		// load config
 		config, err := LoadConfig("keyword_config")
 		if err != nil {

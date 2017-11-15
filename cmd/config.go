@@ -2,13 +2,57 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	rmqtool "github.com/lvzhihao/go-rmqtool"
 	"github.com/spf13/viper"
 )
+
+type ZapLoggerWrapperForRmqtool struct {
+	rmqtool.LoggerInterface
+	Logger *zap.Logger
+}
+
+func (c *ZapLoggerWrapperForRmqtool) Field(input ...interface{}) []zapcore.Field {
+	ret := make([]zapcore.Field, 0)
+	for k, v := range input {
+		switch v.(type) {
+		case zapcore.Field:
+			ret = append(ret, v.(zapcore.Field))
+		default:
+			ret = append(ret, zap.Any(fmt.Sprintf("Field_%d", k+1), v))
+		}
+	}
+	return ret
+}
+
+func (c *ZapLoggerWrapperForRmqtool) Error(format string, v ...interface{}) {
+	c.Logger.Error(format, c.Field(v...)...)
+}
+
+func (c *ZapLoggerWrapperForRmqtool) Debug(format string, v ...interface{}) {
+	c.Logger.Debug(format, c.Field(v...)...)
+}
+
+func (c *ZapLoggerWrapperForRmqtool) Warn(format string, v ...interface{}) {
+	c.Logger.Warn(format, c.Field(v...)...)
+}
+
+func (c *ZapLoggerWrapperForRmqtool) Info(format string, v ...interface{}) {
+	c.Logger.Info(format, c.Field(v...)...)
+}
+
+func (c *ZapLoggerWrapperForRmqtool) Fatal(format string, v ...interface{}) {
+	c.Logger.Fatal(format, c.Field(v...)...)
+}
+
+func (c *ZapLoggerWrapperForRmqtool) Panic(format string, v ...interface{}) {
+	c.Logger.Panic(format, c.Field(v...)...)
+}
 
 type Config struct {
 	Consumer struct {
@@ -19,6 +63,12 @@ type Config struct {
 		Conn     rmqtool.ConnectConfig
 		Exchange string
 		Key      string
+	}
+}
+
+func GetZapLoggerWrapperForRmqtool(logger *zap.Logger) *ZapLoggerWrapperForRmqtool {
+	return &ZapLoggerWrapperForRmqtool{
+		Logger: logger,
 	}
 }
 
