@@ -1,11 +1,44 @@
-#mq config
-rabbitmq_host: 10.10.10.10:5672
-rabbitmq_api: http://xx.xxx.xx/api
-rabbitmq_user: uchat
-rabbitmq_passwd: uchat
-rabbitmq_vhost: uchat
-rabbitmq_receive_exchange_name: uchat_receive
-rabbitmq_msginfo_exchange_name: uchat_msginfo
+# version 2 config
+global_consumer_flag: hostname.uchat4mq
 
-# message queue
-uchat_receive_message_queue: uchat.chat.message
+# rabbitmq config
+receive_rabbitmq: &receive_rabbitmq
+  host: 10.10.10.10:5672
+  api: http://10.10.10.10:15672/api
+  user: user
+  passwd: passwd
+  vhost: vhost
+
+# publisher exchange
+msginfo_publisher: &msginfo_exchange_publisher
+  conn: *receive_rabbitmq
+  exchange:  exchange_name
+
+# message queue config
+message_config:
+  consumer:
+    conn: *receive_rabbitmq
+    queue: 
+      name: queue_name
+      bindlist: 
+      - exchange: exchange_name 
+        key: routing_key 
+        arguments: {}
+  publisher:
+    <<: *msginfo_exchange_publisher
+    key: publish_key 
+
+# keyword queue config
+keyword_config:
+  consumer:
+    conn: *receive_rabbitmq
+    queue: 
+      name: queue_name
+      bindlist: 
+      - exchange: exchange_name 
+        key: routing_key
+        arguments: {}
+  publisher:
+    <<: *msginfo_exchange_publisher
+    key: publish_key 
+

@@ -45,6 +45,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/lvzhihao/go-rmqtool"
+  packages = ["."]
+  revision = "8410f08e1f5caba0e8efcd74fb06733c9e3ab0e2"
+
+[[projects]]
+  branch = "master"
   name = "github.com/lvzhihao/goutils"
   packages = ["."]
   revision = "c702edeac67a3343a17c20152ad5904928f32363"
@@ -208,6 +214,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "98cd9343aebd329e8758342f2456e0f5be7e91a1ce9389f03e5a34a0a30dbd36"
+  inputs-digest = "8ea050410eee8e6cd6619875eaa269e5f5934ffcd862e13467e4d2aae98dd110"
   solver-name = "gps-cdcl"
   solver-version = 1

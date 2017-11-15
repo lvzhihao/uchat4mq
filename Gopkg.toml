@@ -24,6 +24,10 @@
 [[constraint]]
   branch = "master"
   name = "github.com/lvzhihao/goutils"
+  
+[[constraint]]
+  branch = "master"
+  name = "github.com/lvzhihao/go-rmqtool"
 
 [[constraint]]
   branch = "v2"
