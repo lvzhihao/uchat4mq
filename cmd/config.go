@@ -6,7 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/lvzhihao/uchat4mq/rmqtool"
+	rmqtool "github.com/lvzhihao/go-rmqtool"
 	"github.com/spf13/viper"
 )
 

@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lvzhihao/uchat4mq/rmqtool"
+	rmqtool "github.com/lvzhihao/go-rmqtool"
 	"github.com/lvzhihao/uchatlib"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
