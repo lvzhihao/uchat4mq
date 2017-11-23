@@ -21,6 +21,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
-	"github.com/ugorji/go/codec"
 	"go.uber.org/zap"
 )
 
@@ -68,17 +68,15 @@ var keywordCmd = &cobra.Command{
 				rmqtool.Log.Error("process error", zap.Error(err), zap.Any("msg", msg))
 			} else {
 				for _, v := range ret {
-					var b []byte
-					err := codec.NewEncoderBytes(&b, codecHandle).Encode(v)
-					//b, err := msgpack.Marshal(v)
+					b, err := json.Marshal(v)
 					if err != nil {
-						rmqtool.Log.Error("msgpack error", zap.Error(err))
+						rmqtool.Log.Error("json marshal error", zap.Error(err))
 						continue
 					}
 					publisher.PublishExt(config.PublisherKey(), FetchKeywordRouteFix(v), amqp.Publishing{
 						DeliveryMode: amqp.Persistent,
 						Timestamp:    time.Now(),
-						ContentType:  "application/msgpack",
+						ContentType:  "application/json",
 						Body:         b,
 					})
 					msg.Ack(false)

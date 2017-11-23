@@ -56,7 +56,7 @@
   revision = "c702edeac67a3343a17c20152ad5904928f32363"
 
 [[projects]]
-  branch = "master"
+  branch = "v2"
   name = "github.com/lvzhihao/uchatlib"
   packages = ["."]
   revision = "4db9f047b1d0ec320a1fc82377d3f3b2b18ef56d"
@@ -141,6 +141,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/ugorji/go"
+  packages = ["codec"]
+  revision = "84cb69a8af8316eed8cf4a3c9368a56977850062"
+
+[[projects]]
+  branch = "master"
   name = "github.com/valyala/bytebufferpool"
   packages = ["."]
   revision = "e746df99fe4a3986f4d4f79e13c1e0117ce9c2f7"
@@ -214,6 +220,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8ea050410eee8e6cd6619875eaa269e5f5934ffcd862e13467e4d2aae98dd110"
+  inputs-digest = "1a09e8bb6fb9c1e789b1841363d3c7ec38d4ad825356ea8b278290768285052a"
   solver-name = "gps-cdcl"
   solver-version = 1
