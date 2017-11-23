@@ -29,7 +29,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
-	"github.com/vmihailenco/msgpack"
+	"github.com/ugorji/go/codec"
 	"go.uber.org/zap"
 )
 
@@ -64,13 +64,16 @@ var messageCmd = &cobra.Command{
 		}
 
 		queue.Consume(1, func(msg amqp.Delivery) {
+			codecHandle := new(codec.JsonHandle)
 			ret, err := uchatlib.ConvertUchatMessage(msg.Body)
 			if err != nil {
 				msg.Ack(false) //先消费掉，避免队列堵塞
 				rmqtool.Log.Error("process error", zap.Error(err), zap.Any("msg", msg))
 			} else {
 				for _, v := range ret {
-					b, err := msgpack.Marshal(v)
+					var b []byte
+					err := codec.NewEncoderBytes(&b, codecHandle).Encode(v)
+					//b, err := msgpack.Marshal(v)
 					if err != nil {
 						rmqtool.Log.Error("msgpack error", zap.Error(err))
 						continue

@@ -5,7 +5,7 @@ services:
     restart: always
     environment:
       - TZ=Asia/Shanghai
-      - DEBUG=false
+      - DEBUG=true
     volumes:
       - ./.uchat4mq.yaml:/go/src/github.com/lvzhihao/uchat4mq/.uchat4mq.yaml
     command: >
@@ -17,7 +17,7 @@ services:
     restart: always
     environment:
       - TZ=Asia/Shanghai
-      - DEBUG=false
+      - DEBUG=true
     volumes:
       - ./.uchat4mq.yaml:/go/src/github.com/lvzhihao/uchat4mq/.uchat4mq.yaml
     command: >

@@ -29,7 +29,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
-	"github.com/vmihailenco/msgpack"
+	"github.com/ugorji/go/codec"
 	"go.uber.org/zap"
 )
 
@@ -68,7 +68,9 @@ var keywordCmd = &cobra.Command{
 				rmqtool.Log.Error("process error", zap.Error(err), zap.Any("msg", msg))
 			} else {
 				for _, v := range ret {
-					b, err := msgpack.Marshal(v)
+					var b []byte
+					err := codec.NewEncoderBytes(&b, codecHandle).Encode(v)
+					//b, err := msgpack.Marshal(v)
 					if err != nil {
 						rmqtool.Log.Error("msgpack error", zap.Error(err))
 						continue
