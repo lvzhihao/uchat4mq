@@ -141,12 +141,6 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/ugorji/go"
-  packages = ["codec"]
-  revision = "84cb69a8af8316eed8cf4a3c9368a56977850062"
-
-[[projects]]
-  branch = "master"
   name = "github.com/valyala/bytebufferpool"
   packages = ["."]
   revision = "e746df99fe4a3986f4d4f79e13c1e0117ce9c2f7"
@@ -220,6 +214,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1a09e8bb6fb9c1e789b1841363d3c7ec38d4ad825356ea8b278290768285052a"
+  inputs-digest = "3664a90d99c9d6c76b4a0dde66352b924dbcf69f1d792743262f9800bf363a7b"
   solver-name = "gps-cdcl"
   solver-version = 1
