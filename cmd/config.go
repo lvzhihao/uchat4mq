@@ -97,7 +97,7 @@ func (c *Config) ConsumerQueue() (*rmqtool.Queue, error) {
 	if c.ConsumerQueueName() == "" {
 		return nil, errors.New("empty consumer queue name")
 	} else {
-		conn := rmqtool.Conn(c.Consumer.Conn)
+		conn := rmqtool.NewConnect(c.Consumer.Conn)
 		queue := conn.ApplyQueue(c.ConsumerQueueName())
 		err := queue.Ensure(c.Consumer.Queue.Bindlist)
 		return queue, err
@@ -109,10 +109,10 @@ func (c *Config) ConsumerQueueName() string {
 }
 
 func (c *Config) PublisherTool() (*rmqtool.PublisherTool, error) {
-	conn := rmqtool.Conn(c.Publisher.Conn)
+	conn := rmqtool.NewConnect(c.Publisher.Conn)
 	if c.Publisher.Key == "" {
 		return nil, errors.New("empty publisher key")
-	} else if err := conn.CreateExchange(c.PublisherExchange()); err != nil {
+	} else if err := conn.QuickCreateExchange(c.PublisherExchange(), "topic", true); err != nil {
 		return nil, err
 	} else {
 		return conn.ApplyPublisher(c.PublisherExchange(), []string{c.PublisherKey()})

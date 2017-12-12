@@ -10,9 +10,9 @@ type QueueConfig struct {
 }
 
 type QueueBind struct {
-	Exchange  string                 `yaml:"exchange"`
-	Key       string                 `yaml:"key"`
-	Arguments map[string]interface{} `yaml:"arguments"`
+	Key       string     `yaml:"key"`
+	Exchange  string     `yaml:"exchange"`
+	Arguments amqp.Table `yaml:"arguments"`
 }
 
 type Queue struct {
@@ -53,7 +53,7 @@ func (c *Queue) Name() string {
 }
 
 func (c *Queue) ApplyConsumer() (*ConsumerTool, error) {
-	return NewConsumerTool(c.Scheme())
+	return NewConsumerTool(c.Scheme(), c.Name())
 }
 
 func (c *Queue) Consume(prefetchCount int, handle func(amqp.Delivery)) error {
@@ -62,7 +62,7 @@ func (c *Queue) Consume(prefetchCount int, handle func(amqp.Delivery)) error {
 	if err != nil {
 		return err
 	}
-	c.consumer.Consume(c.Name(), prefetchCount, handle)
+	c.consumer.Consume(prefetchCount, handle)
 	defer c.consumer.Close()
 	return nil
 }
@@ -72,39 +72,40 @@ func (c *Queue) Ensure(bindList []*QueueBind) error {
 	if err != nil {
 		return err
 	} else {
-		return c.Bind(bindList)
+		return c.Binds(bindList)
 	}
 }
 
 func (c *Queue) Create() error {
-	return CreateQueue(
-		c.Api(),
-		c.User(),
-		c.Passwd(),
-		c.Vhost(),
-		c.Name(),
-	)
+	return c.conn.QuickCreateQueue(c.Name(), true)
+}
+
+func (c *Queue) Purge() error {
+	return c.conn.QuickPurgeQueue(c.Name())
+}
+
+func (c *Queue) Delete() error {
+	return c.conn.QuickDeleteQueue(c.Name())
 }
 
 func (c *Queue) Close() {
 	c.consumer.Close()
 }
 
-func (c *Queue) Bind(bindList []*QueueBind) error {
+func (c *Queue) Binds(bindList []*QueueBind) error {
 	for _, bind := range bindList {
-		err := BindRoutingKey(
-			c.Api(),
-			c.User(),
-			c.Passwd(),
-			c.Vhost(),
-			c.Name(),
-			bind.Exchange,
-			bind.Key,
-			bind.Arguments,
-		)
+		err := c.Bind(bind)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (c *Queue) Bind(bind *QueueBind) error {
+	return c.conn.QuickQueueBind(c.Name(), bind.Key, bind.Exchange, bind.Arguments)
+}
+
+func (c *Queue) Unbind(bind *QueueBind) error {
+	return c.conn.QuickQueueUnbind(c.Name(), bind.Key, bind.Exchange, bind.Arguments)
 }

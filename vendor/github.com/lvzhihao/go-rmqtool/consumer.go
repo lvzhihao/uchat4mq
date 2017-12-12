@@ -4,7 +4,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lvzhihao/goutils"
 	"github.com/streadway/amqp"
 )
 
@@ -16,25 +15,27 @@ var (
 func GenerateConsumerName(name string) string {
 	return strings.Join([]string{
 		name,
-		goutils.RandStr(20),
 		time.Now().Format(time.RFC3339),
 	}, ".")
 }
 
 type ConsumerTool struct {
 	amqpUrl   string
+	queue     string
 	conn      *amqp.Connection
 	name      string
 	RetryTime time.Duration
 	isClosed  bool
+	//todo tmux.sync
 }
 
-func NewConsumerTool(url string) (*ConsumerTool, error) {
+func NewConsumerTool(url, queue string) (*ConsumerTool, error) {
 	c := &ConsumerTool{
 		amqpUrl:   url,                      //rmq link
 		RetryTime: DefaultConsumerRetryTime, //default retry
 		isClosed:  false,
 		name:      DefaultConsumerToolName,
+		queue:     queue,
 	}
 	// first test dial
 	_, err := amqp.Dial(url)
@@ -50,7 +51,7 @@ func (c *ConsumerTool) SetName(name string) string {
 	return c.Name()
 }
 
-func (c *ConsumerTool) Link(queue string, prefetchCount int) (<-chan amqp.Delivery, error) {
+func (c *ConsumerTool) Link(prefetchCount int) (<-chan amqp.Delivery, error) {
 	var err error
 	c.conn, err = amqp.Dial(c.amqpUrl)
 	if err != nil {
@@ -65,7 +66,7 @@ func (c *ConsumerTool) Link(queue string, prefetchCount int) (<-chan amqp.Delive
 		c.conn.Close()
 		return nil, err
 	}
-	deliveries, err := channel.Consume(queue, GenerateConsumerName(c.name), false, false, false, false, nil)
+	deliveries, err := channel.Consume(c.queue, GenerateConsumerName(c.name), false, false, false, false, nil)
 	if err != nil {
 		c.conn.Close()
 		return nil, err
@@ -83,15 +84,15 @@ func (c *ConsumerTool) Close() {
 	}
 }
 
-func (c *ConsumerTool) Consume(queue string, prefetchCount int, handle func(amqp.Delivery)) {
+func (c *ConsumerTool) Consume(prefetchCount int, handle func(amqp.Delivery)) {
 	defer c.Close()
 	for {
 		if c.isClosed == true {
-			Log.Error("Consumer Link Closed, Quit...", queue)
+			Log.Error("Consumer Link Closed, Quit...", c.queue)
 			break
 		}
 		time.Sleep(c.RetryTime)
-		deliveries, err := c.Link(queue, prefetchCount)
+		deliveries, err := c.Link(prefetchCount)
 		if err != nil {
 			Log.Error("Consumer Link Error", err)
 			continue
