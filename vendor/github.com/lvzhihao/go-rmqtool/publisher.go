@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	DefaultPublisherRetryTime time.Duration = 3 * time.Second
+	DefaultPublisherRetryTime   time.Duration = 3 * time.Second
+	DefaultPublisherChannelSize int32         = 2000
 )
 
 type PublisherTool struct {
@@ -34,7 +35,7 @@ func (c *PublisherTool) conn(url, exchange string, routeKeys []string) error {
 			amqpUrl:  url,
 			exchange: exchange,
 			routeKey: route,
-			Channel:  make(chan interface{}, 1000),
+			Channel:  make(chan interface{}, DefaultPublisherChannelSize),
 		}
 		go c.channels[route].Receive()
 	}
@@ -94,13 +95,15 @@ RetryConnect:
 		time.Sleep(3 * time.Second)
 		goto RetryConnect
 	}
-	err = channel.ExchangeDeclare(c.exchange, "topic", true, false, false, false, nil)
-	if err != nil {
-		Log.Error("Channel Connection Error 3", c.routeKey, err)
-		conn.Close()
-		time.Sleep(3 * time.Second)
-		goto RetryConnect
-	}
+	/*
+		err = channel.ExchangeDeclare(c.exchange, "topic", true, false, false, false, nil)
+		if err != nil {
+			Log.Error("Channel Connection Error 3", c.routeKey, err)
+			conn.Close()
+			time.Sleep(3 * time.Second)
+			goto RetryConnect
+		}
+	*/
 BreakFor:
 	for {
 		select {
