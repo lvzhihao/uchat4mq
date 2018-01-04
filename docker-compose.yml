@@ -24,3 +24,27 @@ services:
       sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
       echo $${TZ} > /etc/timezone &&
       go-wrapper run keyword"
+  member_join:
+    image: edwinlll/uchat4mq:latest
+    restart: always
+    environment:
+      - TZ=Asia/Shanghai
+      - DEBUG=true
+    volumes:
+      - ./.uchat4mq.yaml:/go/src/github.com/lvzhihao/uchat4mq/.uchat4mq.yaml
+    command: >
+      sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
+      echo $${TZ} > /etc/timezone &&
+      go-wrapper run memberJoin"
+  member_quit:
+    image: edwinlll/uchat4mq:latest
+    restart: always
+    environment:
+      - TZ=Asia/Shanghai
+      - DEBUG=true
+    volumes:
+      - ./.uchat4mq.yaml:/go/src/github.com/lvzhihao/uchat4mq/.uchat4mq.yaml
+    command: >
+      sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
+      echo $${TZ} > /etc/timezone &&
+      go-wrapper run memberQuit"
