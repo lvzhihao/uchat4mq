@@ -6,5 +6,4 @@ COPY . .
 
 RUN go get github.com/yanyiwu/gojieba
 
-RUN go-wrapper install && \
-    rm -rf *
+RUN go-wrapper install 
