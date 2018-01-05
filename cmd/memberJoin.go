@@ -80,8 +80,8 @@ var memberJoinCmd = &cobra.Command{
 						ContentType:  "application/json",
 						Body:         b,
 					})
-					msg.Ack(false)
 				}
+				msg.Ack(false)
 			}
 		}) //尽量保证聊天记录的时序，以api回调接口收到消息进入receive队列为准
 	},

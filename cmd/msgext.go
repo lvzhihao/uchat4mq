@@ -1,4 +1,4 @@
-// Copyright © 2017 edwin <edwin.lzh@gmail.com>
+// Copyright © 2018 edwin <edwin.lzh@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,21 +23,33 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	rmqtool "github.com/lvzhihao/go-rmqtool"
 	"github.com/lvzhihao/uchatlib"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
+	"github.com/yanyiwu/gojieba"
 	"go.uber.org/zap"
 )
 
-// messageCmd represents the message command
-var messageCmd = &cobra.Command{
-	Use:   "message",
-	Short: "convert uchat message",
-	Long:  `convert uchat message`,
+type UchatMsgExt struct {
+	uchatlib.UchatMessage
+	ContentLength     int //内容长度
+	SegmentationCount int //内容分词数量
+	SegmentationNo    int
+	SegmentationWord  string //单个分词，统计词云使用
+	SegmentationType  string //单个分词词性，统计词云使用
+}
+
+// msgextCmd represents the msgext command
+var msgextCmd = &cobra.Command{
+	Use:   "msgext",
+	Short: "msgext",
+	Long:  `msgext`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// zap logger
 		logger := GetLogger()
@@ -47,39 +59,53 @@ var messageCmd = &cobra.Command{
 		rmqtool.Log.Set(GetZapLoggerWrapperForRmqtool(logger))
 		//rmqtool.Log.Debug("logger warpper demo", "no key param", zap.Any("ccc", time.Now()), zap.Any("dddd", []string{"xx"}), "no key param again", zap.Error(errors.New("xx")))
 		// load config
-		config, err := LoadConfig("message_config")
+		config, err := LoadConfig("msgext_config")
 		if err != nil {
 			logger.Fatal("load config error", zap.Error(err))
 		}
-		logger.Debug("load message config success", zap.Any("config", config))
+		logger.Debug("load msgext config success", zap.Any("config", config))
 
 		queue, err := config.ConsumerQueue()
 		if err != nil {
-			logger.Fatal("migrate message_queue error", zap.Error(err))
+			logger.Fatal("migrate msgext_queue error", zap.Error(err))
 		}
 
 		publisher, err := config.PublisherTool()
 		if err != nil {
-			logger.Fatal("call message_publisher error", zap.Error(err))
+			logger.Fatal("call msgext_publisher error", zap.Error(err))
 		}
 
+		x := gojieba.NewJieba()
+		defer x.Free()
+
 		queue.Consume(1, func(msg amqp.Delivery) {
-			ret, err := uchatlib.ConvertUchatMessage(msg.Body)
+			var rst UchatMsgExt
+			err := json.Unmarshal(msg.Body, &rst)
 			if err != nil {
 				msg.Ack(false) //先消费掉，避免队列堵塞
 				rmqtool.Log.Error("process error", zap.Error(err), zap.Any("msg", msg))
 			} else {
-				for _, v := range ret {
-					b, err := json.Marshal(v)
-					if err != nil {
-						rmqtool.Log.Error("json marshal error", zap.Error(err))
-						continue
-					}
-					publisher.PublishExt(config.PublisherKey(), FetchMessageRouteFix(v), amqp.Publishing{
+				words := x.Tag(strings.TrimSpace(rst.Content))
+				rst.ContentLength = utf8.RuneCountInString(rst.Content)
+				rst.SegmentationCount = len(words)
+				lenB, _ := json.Marshal(rst)
+				publisher.PublishExt(config.PublisherKey(), ".length"+FetchMsgextRouteFix(&rst), amqp.Publishing{
+					DeliveryMode: amqp.Persistent,
+					Timestamp:    time.Now(),
+					ContentType:  "application/json",
+					Body:         lenB,
+				})
+				for no, word := range words {
+					info := strings.Split(word, "/")
+					rst.SegmentationNo = no
+					rst.SegmentationWord = info[0]
+					rst.SegmentationType = info[1]
+					lenW, _ := json.Marshal(rst)
+					publisher.PublishExt(config.PublisherKey(), ".words"+FetchMsgextRouteFix(&rst), amqp.Publishing{
 						DeliveryMode: amqp.Persistent,
 						Timestamp:    time.Now(),
 						ContentType:  "application/json",
-						Body:         b,
+						Body:         lenW,
 					})
 				}
 				msg.Ack(false)
@@ -88,21 +114,10 @@ var messageCmd = &cobra.Command{
 	},
 }
 
-func FetchMessageRouteFix(v *uchatlib.UchatMessage) string {
+func FetchMsgextRouteFix(v *UchatMsgExt) string {
 	return fmt.Sprintf(".%s.%d.%s", v.ChatRoomSerialNo, v.MsgType, v.WxUserSerialNo) // .roomid.type.userid
 }
 
 func init() {
-	RootCmd.AddCommand(messageCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// messageCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// messageCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
+	RootCmd.AddCommand(msgextCmd)
 }
