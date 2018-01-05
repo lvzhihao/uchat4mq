@@ -146,6 +146,12 @@
   revision = "dcecefd839c4193db0d35b88ec65b4c12d360ab0"
 
 [[projects]]
+  name = "github.com/yanyiwu/gojieba"
+  packages = ["."]
+  revision = "6e14c5c21cec8e7b26f319f3bcc3dddffacc703a"
+  version = "v1.0.0"
+
+[[projects]]
   name = "go.uber.org/atomic"
   packages = ["."]
   revision = "4e336646b2ef9fc6e47be8e21594178f98e5ebcf"
@@ -190,6 +196,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b22fe68f5107fae60239ade9b01b668549052c65ffce1b31ff86549d5318b30c"
+  inputs-digest = "b43035cc3a3f796d095a647aead299f7b61cf2b7d192035972bbd3eb809ed96f"
   solver-name = "gps-cdcl"
   solver-version = 1
