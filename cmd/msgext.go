@@ -85,28 +85,31 @@ var msgextCmd = &cobra.Command{
 				msg.Ack(false) //先消费掉，避免队列堵塞
 				rmqtool.Log.Error("process error", zap.Error(err), zap.Any("msg", msg))
 			} else {
-				words := x.Tag(strings.TrimSpace(rst.Content))
-				rst.ContentLength = utf8.RuneCountInString(rst.Content)
-				rst.SegmentationCount = len(words)
-				lenB, _ := json.Marshal(rst)
-				publisher.PublishExt(config.PublisherKey(), ".length"+FetchMsgextRouteFix(&rst), amqp.Publishing{
-					DeliveryMode: amqp.Persistent,
-					Timestamp:    time.Now(),
-					ContentType:  "application/json",
-					Body:         lenB,
-				})
-				for no, word := range words {
-					info := strings.Split(word, "/")
-					rst.SegmentationNo = no
-					rst.SegmentationWord = info[0]
-					rst.SegmentationType = info[1]
-					lenW, _ := json.Marshal(rst)
-					publisher.PublishExt(config.PublisherKey(), ".words"+FetchMsgextRouteFix(&rst), amqp.Publishing{
+				// 如果是文本信息，则进行分词处理
+				if rst.MsgType == 2001 {
+					words := x.Tag(strings.TrimSpace(rst.Content))
+					rst.ContentLength = utf8.RuneCountInString(rst.Content)
+					rst.SegmentationCount = len(words)
+					lenB, _ := json.Marshal(rst)
+					publisher.PublishExt(config.PublisherKey(), ".length"+FetchMsgextRouteFix(&rst), amqp.Publishing{
 						DeliveryMode: amqp.Persistent,
 						Timestamp:    time.Now(),
 						ContentType:  "application/json",
-						Body:         lenW,
+						Body:         lenB,
 					})
+					for no, word := range words {
+						info := strings.Split(word, "/")
+						rst.SegmentationNo = no
+						rst.SegmentationWord = info[0]
+						rst.SegmentationType = info[1]
+						lenW, _ := json.Marshal(rst)
+						publisher.PublishExt(config.PublisherKey(), ".words"+FetchMsgextRouteFix(&rst), amqp.Publishing{
+							DeliveryMode: amqp.Persistent,
+							Timestamp:    time.Now(),
+							ContentType:  "application/json",
+							Body:         lenW,
+						})
+					}
 				}
 				msg.Ack(false)
 			}
