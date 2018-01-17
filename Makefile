@@ -21,7 +21,9 @@ docker-push:
 docker-ccr:
 	sudo docker tag edwinlll/uchat4mq:latest ccr.ccs.tencentyun.com/wdwd/uchat4mq:latest
 	sudo docker push ccr.ccs.tencentyun.com/wdwd/uchat4mq:latest
+	sudo docker rmi ccr.ccs.tencentyun.com/wdwd/uchat4mq:latest
 
 docker-uhub:
 	sudo docker tag edwinlll/uchat4mq:latest uhub.service.ucloud.cn/mmzs/uchat4mq:latest
 	sudo docker push uhub.service.ucloud.cn/mmzs/uchat4mq:latest
+	sudo docker rmi uhub.service.ucloud.cn/mmzs/uchat4mq:latest

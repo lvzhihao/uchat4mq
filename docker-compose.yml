@@ -7,11 +7,11 @@ services:
       - TZ=Asia/Shanghai
       - DEBUG=true
     volumes:
-      - ./.uchat4mq.yaml:/go/src/github.com/lvzhihao/uchat4mq/.uchat4mq.yaml
+      - ./.uchat4mq.yaml:/usr/local/uchat4mq/.uchat4mq.yaml
     command: >
       sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
       echo $${TZ} > /etc/timezone &&
-      go-wrapper run message"
+      uchat4mq message"
   keyword:
     image: edwinlll/uchat4mq:latest
     restart: always
@@ -19,11 +19,11 @@ services:
       - TZ=Asia/Shanghai
       - DEBUG=true
     volumes:
-      - ./.uchat4mq.yaml:/go/src/github.com/lvzhihao/uchat4mq/.uchat4mq.yaml
+      - ./.uchat4mq.yaml:/usr/local/uchat4mq/.uchat4mq.yaml
     command: >
       sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
       echo $${TZ} > /etc/timezone &&
-      go-wrapper run keyword"
+      uchat4mq keyword"
   member_join:
     image: edwinlll/uchat4mq:latest
     restart: always
@@ -31,11 +31,11 @@ services:
       - TZ=Asia/Shanghai
       - DEBUG=true
     volumes:
-      - ./.uchat4mq.yaml:/go/src/github.com/lvzhihao/uchat4mq/.uchat4mq.yaml
+      - ./.uchat4mq.yaml:/usr/local/uchat4mq/.uchat4mq.yaml
     command: >
       sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
       echo $${TZ} > /etc/timezone &&
-      go-wrapper run memberJoin"
+      uchat4mq memberJoin"
   member_quit:
     image: edwinlll/uchat4mq:latest
     restart: always
@@ -43,11 +43,11 @@ services:
       - TZ=Asia/Shanghai
       - DEBUG=true
     volumes:
-      - ./.uchat4mq.yaml:/go/src/github.com/lvzhihao/uchat4mq/.uchat4mq.yaml
+      - ./.uchat4mq.yaml:/usr/local/uchat4mq/.uchat4mq.yaml
     command: >
       sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
       echo $${TZ} > /etc/timezone &&
-      go-wrapper run memberQuit"
+      uchat4mq memberQuit"
   msgext:
     image: edwinlll/uchat4mq:latest
     restart: always
@@ -55,8 +55,8 @@ services:
       - TZ=Asia/Shanghai
       - DEBUG=true
     volumes:
-      - ./.uchat4mq.yaml:/go/src/github.com/lvzhihao/uchat4mq/.uchat4mq.yaml
+      - ./.uchat4mq.yaml:/usr/local/uchat4mq/.uchat4mq.yaml
     command: >
       sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
       echo $${TZ} > /etc/timezone &&
-      go-wrapper run msgext"
+      uchat4mq msgext"
