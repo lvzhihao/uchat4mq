@@ -60,3 +60,15 @@ services:
       sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
       echo $${TZ} > /etc/timezone &&
       uchat4mq msgext"
+  private:
+    image: edwinlll/uchat4mq:latest
+    restart: always
+    environment:
+      - TZ=Asia/Shanghai
+      - DEBUG=true
+    volumes:
+      - ./.uchat4mq.yaml:/usr/local/uchat4mq/.uchat4mq.yaml
+    command: >
+      sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
+      echo $${TZ} > /etc/timezone &&
+      uchat4mq private"
