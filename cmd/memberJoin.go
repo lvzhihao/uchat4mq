@@ -29,6 +29,7 @@ import (
 
 	rmqtool "github.com/lvzhihao/go-rmqtool"
 	"github.com/lvzhihao/uchatlib"
+	"github.com/lvzhihao/zhiya/models"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
@@ -45,6 +46,9 @@ var memberJoinCmd = &cobra.Command{
 		// rmqtool config
 		rmqtool.DefaultConsumerToolName = viper.GetString("global_consumer_flag")
 		rmqtool.Log.Set(GetZapLoggerWrapperForRmqtool(logger))
+		// db
+		db := GetMysql()
+		defer db.Close()
 		// load config
 		config, err := LoadConfig("member_join_config")
 		if err != nil {
@@ -69,6 +73,12 @@ var memberJoinCmd = &cobra.Command{
 				rmqtool.Log.Error("process error", zap.Error(err), zap.Any("msg", msg))
 			} else {
 				for _, v := range ret {
+					robotChatRoom, err := models.FindRobotChatRoomByChatRoom(db, v.ChatRoomSerialNo)
+					if err == nil {
+						v.ExtraData = map[string]interface{}{
+							"robotChatRoomModel": robotChatRoom,
+						}
+					} // 添加用户关联数据
 					b, err := json.Marshal(v)
 					if err != nil {
 						rmqtool.Log.Error("json marshal error", zap.Error(err))

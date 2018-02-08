@@ -3,11 +3,14 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/mysql"
 	rmqtool "github.com/lvzhihao/go-rmqtool"
 	"github.com/spf13/viper"
 )
@@ -125,4 +128,15 @@ func (c *Config) PublisherExchange() string {
 
 func (c *Config) PublisherKey() string {
 	return c.Publisher.Key
+}
+
+func GetMysql() *gorm.DB {
+	db, err := gorm.Open("mysql", viper.GetString("mysql_dns"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	gorm.DefaultTableNameHandler = func(db *gorm.DB, defaultTableName string) string {
+		return viper.GetString("mysql_table_prefix") + "_" + defaultTableName
+	}
+	return db
 }
