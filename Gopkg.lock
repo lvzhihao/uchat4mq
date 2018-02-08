@@ -14,6 +14,12 @@
   version = "v1.4.2"
 
 [[projects]]
+  name = "github.com/go-sql-driver/mysql"
+  packages = ["."]
+  revision = "a0583e0143b1624142adab07e0e97fe106d99561"
+  version = "v1.3"
+
+[[projects]]
   branch = "master"
   name = "github.com/hashicorp/hcl"
   packages = [".","hcl/ast","hcl/parser","hcl/scanner","hcl/strconv","hcl/token","json/parser","json/scanner","json/token"]
@@ -27,7 +33,7 @@
 
 [[projects]]
   name = "github.com/jinzhu/gorm"
-  packages = ["."]
+  packages = [".","dialects/mysql"]
   revision = "5174cc5c242a728b435ea2be8a2f7f998e15429b"
   version = "v1.0"
 
@@ -214,6 +220,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e9ce9c687c2938da265ed66fb047598c851c9706507efa12f359701bd5e338cc"
+  inputs-digest = "feccb7c5d2e7a4a8a63ea6eea0d65d5e1d19a6e3d5e1f59dcfbfd26d128a0606"
   solver-name = "gps-cdcl"
   solver-version = 1
