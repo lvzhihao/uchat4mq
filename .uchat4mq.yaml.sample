@@ -1,6 +1,10 @@
 # version 2 config
 global_consumer_flag: hostname.uchat4mq
 
+# mysql connecnt
+mysql_dns: root:passwd@tcp(127.0.0.1:3306)/uchat?parseTime=true&charset=utf8mb4,utf8&loc=Asia%2FShanghai #&interpolateParams=true
+mysql_table_prefix: demo
+
 # rabbitmq config
 receive_rabbitmq: &receive_rabbitmq
   host: 10.10.10.10:5672
