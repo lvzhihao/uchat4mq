@@ -9,4 +9,7 @@ RUN apk --no-cache add ca-certificates tzdata libgcc libstdc++
 WORKDIR /usr/local/uchat4mq
 COPY --from=builder /go/src/github.com/lvzhihao/uchat4mq/uchat4mq .
 COPY --from=builder /go/src/github.com/lvzhihao/uchat4mq/vendor/github.com/yanyiwu/gojieba/dict /go/src/github.com/lvzhihao/uchat4mq/vendor/github.com/yanyiwu/gojieba/dict
+COPY ./docker-entrypoint.sh  .
 ENV PATH /usr/local/uchat4mq:$PATH
+RUN chmod +x /usr/local/uchat4mq/docker-entrypoint.sh
+ENTRYPOINT ["/usr/local/uchat4mq/docker-entrypoint.sh"]

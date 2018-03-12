@@ -8,10 +8,7 @@ services:
       - DEBUG=true
     volumes:
       - ./.uchat4mq.yaml:/usr/local/uchat4mq/.uchat4mq.yaml
-    command: >
-      sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
-      echo $${TZ} > /etc/timezone &&
-      uchat4mq message"
+    command: ["message"]
   keyword:
     image: edwinlll/uchat4mq:latest
     restart: always
@@ -20,10 +17,7 @@ services:
       - DEBUG=true
     volumes:
       - ./.uchat4mq.yaml:/usr/local/uchat4mq/.uchat4mq.yaml
-    command: >
-      sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
-      echo $${TZ} > /etc/timezone &&
-      uchat4mq keyword"
+    command: ["keyword"]
   member_join:
     image: edwinlll/uchat4mq:latest
     restart: always
@@ -32,10 +26,7 @@ services:
       - DEBUG=true
     volumes:
       - ./.uchat4mq.yaml:/usr/local/uchat4mq/.uchat4mq.yaml
-    command: >
-      sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
-      echo $${TZ} > /etc/timezone &&
-      uchat4mq memberJoin"
+    command: ["memberJoin"]
   member_quit:
     image: edwinlll/uchat4mq:latest
     restart: always
@@ -44,10 +35,7 @@ services:
       - DEBUG=true
     volumes:
       - ./.uchat4mq.yaml:/usr/local/uchat4mq/.uchat4mq.yaml
-    command: >
-      sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
-      echo $${TZ} > /etc/timezone &&
-      uchat4mq memberQuit"
+    command: ["memberQuit"]
   msgext:
     image: edwinlll/uchat4mq:latest
     restart: always
@@ -56,10 +44,7 @@ services:
       - DEBUG=true
     volumes:
       - ./.uchat4mq.yaml:/usr/local/uchat4mq/.uchat4mq.yaml
-    command: >
-      sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
-      echo $${TZ} > /etc/timezone &&
-      uchat4mq msgext"
+    command: ["msgext"]
   private:
     image: edwinlll/uchat4mq:latest
     restart: always
@@ -68,7 +53,4 @@ services:
       - DEBUG=true
     volumes:
       - ./.uchat4mq.yaml:/usr/local/uchat4mq/.uchat4mq.yaml
-    command: >
-      sh -c "ln -snf /usr/share/zoneinfo/$${TZ} /etc/localtime && 
-      echo $${TZ} > /etc/timezone &&
-      uchat4mq private"
+    command: ["private"]
