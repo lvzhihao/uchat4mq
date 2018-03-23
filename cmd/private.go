@@ -27,6 +27,7 @@ import (
 
 	rmqtool "github.com/lvzhihao/go-rmqtool"
 	"github.com/lvzhihao/uchatlib"
+	"github.com/lvzhihao/zhiya/models"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
@@ -42,6 +43,9 @@ var privateCmd = &cobra.Command{
 		// zap logger
 		logger := GetLogger()
 		defer logger.Sync()
+		// db
+		db := GetMysql()
+		defer db.Close()
 		// rmqtool config
 		rmqtool.DefaultConsumerToolName = viper.GetString("global_consumer_flag")
 		rmqtool.Log.Set(GetZapLoggerWrapperForRmqtool(logger))
@@ -70,6 +74,18 @@ var privateCmd = &cobra.Command{
 				rmqtool.Log.Error("process error", zap.Error(err), zap.Any("msg", msg))
 			} else {
 				for _, v := range ret {
+					extra := make(map[string]interface{}, 0)
+					var myRobot models.MyRobot
+					err := db.Where("robot_serial_no = ?", v.RobotSerialNo).First(&myRobot).Error
+					if err == nil {
+						extra["myRobot"] = myRobot
+					} // 添加设备
+					var robot models.Robot
+					err = db.Where("serial_no = ?", v.RobotSerialNo).First(&robot).Error
+					if err == nil {
+						extra["robot"] = robot
+					} // 添加设备
+					v.ExtraData = extra
 					b, err := json.Marshal(v)
 					if err != nil {
 						rmqtool.Log.Error("json marshal error", zap.Error(err))
