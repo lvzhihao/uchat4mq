@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/url"
 	"regexp"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/lvzhihao/goutils"
 	"github.com/lvzhihao/uchatlib"
+	"github.com/lvzhihao/zhiya/chatbot"
 	"github.com/lvzhihao/zhiya/models"
 	"github.com/lvzhihao/zhiya/shorten"
 	"github.com/lvzhihao/zhiya/tuling"
@@ -26,6 +28,7 @@ var (
 	DefaultMemberJoinWelcome      string        = ""
 	DefaultMemberJoinSendInterval time.Duration = 60 * time.Second
 	HashID                        *hashids.HashID
+	UseWorkTemplate               bool = false
 )
 
 //初始化hashids
@@ -52,14 +55,20 @@ func SyncRobots(client *uchatlib.UchatClient, db *gorm.DB) error {
 		if err != nil {
 			return err
 		}
+		robot.WxId = goutils.ToString(v["vcWxAlias"])
 		robot.ChatRoomCount = goutils.ToInt32(v["nChatRoomCount"])
-		nickNameB, _ := base64.StdEncoding.DecodeString(v["vcBase64NickName"])
-		robot.NickName = goutils.ToString(nickNameB)
+		nickNameB, err := base64.StdEncoding.DecodeString(v["vcBase64NickName"])
+		if err != nil {
+			robot.NickName = goutils.ToString(v["vcNickName"])
+		} else {
+			robot.NickName = goutils.ToString(nickNameB)
+		}
 		robot.Base64NickName = v["vcBase64NickName"]
 		robot.HeadImages = v["vcHeadImages"]
 		robot.CodeImages = v["vcCodeImages"]
 		robot.Status = goutils.ToInt32(v["nStatus"])
 		err = db.Save(&robot).Error
+		log.Printf("%+v\n", robot)
 		if err != nil {
 			return err
 		}
@@ -184,6 +193,8 @@ func SyncChatRoomStatus(chatRoomSerialNo string, client *uchatlib.UchatClient, d
 				robotChatRoom.Close(db)
 			}
 		}
+		room.Name = goutils.ToString(rst["vcChatRoomName"])
+		room.Base64Name = base64.StdEncoding.EncodeToString([]byte(room.Name))
 		room.Status = goutils.ToInt32(rst["nStatus"])
 		room.RobotInStatus = goutils.ToInt32(rst["nRobotInStatus"])
 		room.RobotSerialNo = goutils.ToString(rst["vcRobotSerialNo"])
@@ -315,12 +326,6 @@ func SyncChatRoomCreateCallback(b []byte, client *uchatlib.UchatClient, db *gorm
 		return err
 	}
 	for _, v := range list {
-		applyCode, applyCodeerr := models.ApplyCodeUsed(db, goutils.ToString(v["vcApplyCodeSerialNo"]))
-		/*
-			if err != nil {
-				return err
-			}
-		*/
 		room := models.ChatRoom{}
 		chatRoomSerialNo := goutils.ToString(v["vcChatRoomSerialNo"])
 		err = room.Ensure(db, chatRoomSerialNo)
@@ -341,11 +346,25 @@ func SyncChatRoomCreateCallback(b []byte, client *uchatlib.UchatClient, db *gorm
 		if err != nil {
 			return err
 		}
+		applyCode, applyCodeerr := models.ApplyCodeUsed(db, goutils.ToString(v["vcApplyCodeSerialNo"]))
 		if applyCodeerr == nil {
 			robotRoom.MyId = applyCode.MyId
 			robotRoom.SubId = applyCode.SubId
-		} //如果有applyCode记录，可确定开群申请时的供应商和店铺身份
+		} else { //如果有applyCode记录，可确定开群申请时的供应商和店铺身份
+			var robotJoin models.RobotJoin
+			err := db.Where("robot_serial_no = ?", goutils.ToString(v["vcRobotSerialNo"])).
+				Where("chat_room_serial_no = ?", goutils.ToString(v["vcChatRoomSerialNo"])).
+				Where("wx_user_serial_no = ?", goutils.ToString(v["vcWxUserSerialNo"])).
+				Where("status = ?", 1).
+				Where("UNIX_TIMESTAMP(updated_at) >= ?", time.Now().Add(-60*time.Minute).Unix()).
+				First(&robotJoin).Error //1小时内有相同的开通记录
+			if err == nil {
+				robotRoom.MyId = robotJoin.MyId
+			}
+			//log.Fatal(robotJoin, err)
+		}
 		robotRoom.IsOpen = true
+		// 默认试用期
 		robotRoom.ExpiredDate = time.Now().Add(7 * 24 * time.Hour)
 		err = db.Save(&robotRoom).Error
 		if err != nil {
@@ -353,6 +372,8 @@ func SyncChatRoomCreateCallback(b []byte, client *uchatlib.UchatClient, db *gorm
 		}
 		// sync member info
 		SyncChatRoomMembers(chatRoomSerialNo, client)
+		// sync chat qr code
+		uchatlib.ApplyChatRoomQrCode(chatRoomSerialNo, client)
 		// open get message
 		log.Println(uchatlib.SetChatRoomOpenGetMessage(chatRoomSerialNo, client))
 	}
@@ -444,10 +465,38 @@ func SyncMemberJoinCallback(b []byte, db *gorm.DB, managerDB *gorm.DB) error {
 	return nil
 }
 
+func FetchChatRoomMemberJoinMessageTemplate(db *gorm.DB, chatRoomSerialNo string) (string, time.Duration) {
+	template, err := GetChatRoomValidTemplate(db, chatRoomSerialNo, "member.join.welcome")
+	if err != nil {
+		return "", DefaultMemberJoinSendInterval
+	}
+	var params map[string]interface{}
+	err = json.Unmarshal([]byte(template.CmdParams), &params)
+	var interval = DefaultMemberJoinSendInterval
+	if err == nil {
+		if iter, ok := params["interval"]; ok {
+			interval = time.Duration(goutils.ToInt32(iter)) * time.Second
+		}
+	}
+	return strings.TrimSpace(template.CmdReply), interval
+}
+
 /*
   发送群内信息
 */
 func SendChatRoomMemberTextMessage(charRoomSerialNo, wxSerialNo, msg string, db, managerDB *gorm.DB) error {
+	log.Println("commit start")
+	sendInterval := DefaultMemberJoinSendInterval
+	if msg == "" {
+		if UseWorkTemplate == true {
+			msg, sendInterval = FetchChatRoomMemberJoinMessageTemplate(db, charRoomSerialNo)
+		} else {
+			msg = FetchChatRoomMemberJoinMessage(charRoomSerialNo, db)
+		}
+	}
+	if msg == "" {
+		return errors.New("no join content")
+	}
 	log.Println("commit start")
 	message := &models.MessageQueue{}
 	tx := db.Begin()
@@ -455,17 +504,12 @@ func SendChatRoomMemberTextMessage(charRoomSerialNo, wxSerialNo, msg string, db,
 	if err == nil {
 		log.Println("update join message")
 		//update
-		message.WeixinSerialNo = message.WeixinSerialNo + "," + wxSerialNo //添加@新成员
+		if strings.Contains(msg, "@新成员名称") {
+			message.WeixinSerialNo = message.WeixinSerialNo + "," + wxSerialNo //添加@新成员
+		}
 	} else {
 		log.Println("create join message")
 		//new message
-		if msg == "" {
-			msg = FetchChatRoomMemberJoinMessage(charRoomSerialNo, db)
-		}
-		if msg == "" {
-			tx.Rollback()
-			return errors.New("no content")
-		}
 		message.ChatRoomSerialNoList = charRoomSerialNo
 		message.ChatRoomCount = 1
 		message.MsgType = "2001"
@@ -487,7 +531,7 @@ func SendChatRoomMemberTextMessage(charRoomSerialNo, wxSerialNo, msg string, db,
 		}
 		message.SendType = 10 //第一个新成员加入后，30秒内所有加入成员一起发送，类型10
 		message.SendStatus = 0
-		message.SendTime = time.Now().Add(DefaultMemberJoinSendInterval)
+		message.SendTime = time.Now().Add(sendInterval)
 		err := tx.Create(message).Error
 		if err != nil {
 			tx.Rollback()
@@ -536,7 +580,43 @@ func FetchChatRoomMemberJoinMessage(charRoomSerialNo string, db *gorm.DB) string
 	return ""
 }
 
-func SyncChatKeywordCallback(b []byte, db *gorm.DB, managerDB *gorm.DB, tool *utils.ReceiveTool) error {
+func FetchChatRoomIntelligentChatTemplate(db *gorm.DB, chatRoomSerialNo string, msgDate time.Time) (*models.WorkTemplate, error) {
+	template, err := GetChatRoomValidTemplate(db, chatRoomSerialNo, "shop.intelligent.chatting")
+	if err != nil {
+		return nil, err
+	}
+	var params map[string]interface{}
+	err = json.Unmarshal([]byte(template.CmdParams), &params)
+	if err != nil {
+		return nil, err
+	}
+	loc, _ := time.LoadLocation("Asia/Shanghai")
+	startTime, err := time.ParseInLocation("2006-01-02 15:04:05", time.Now().Format("2006-01-02 ")+goutils.ToString(params["start_time"]), loc)
+	if err != nil {
+		return nil, err
+	}
+	endTime, err := time.ParseInLocation("2006-01-02 15:04:05", time.Now().Format("2006-01-02 ")+goutils.ToString(params["end_time"]), loc)
+	if err != nil {
+		return nil, err
+	}
+	// 如果结束时间为第二天的，则规则是大于当天起始时间或小于当天结束时间
+	if int64(endTime.Sub(startTime)/time.Second) < 0 {
+		if int64(msgDate.Sub(startTime)/time.Second) > 0 || int64(msgDate.Sub(endTime)/time.Second) < 0 {
+			// run
+		} else {
+			return nil, fmt.Errorf("time closed")
+		}
+	} else {
+		if int64(msgDate.Sub(startTime)/time.Second) > 0 && int64(msgDate.Sub(endTime)/time.Second) < 0 {
+			// run
+		} else {
+			return nil, fmt.Errorf("time closed")
+		}
+	}
+	return template, nil
+}
+
+func SyncChatKeywordCallback(b []byte, db *gorm.DB, managerDB *gorm.DB, tool *utils.ReceiveTool, chatBotClient *chatbot.Client) error {
 	var rst map[string]interface{}
 	err := json.Unmarshal(b, &rst)
 	if err != nil {
@@ -553,29 +633,97 @@ func SyncChatKeywordCallback(b []byte, db *gorm.DB, managerDB *gorm.DB, tool *ut
 	}
 	for _, v := range list {
 		var robotChatRoom models.RobotChatRoom
-		db.Where("chat_room_serial_no = ?", goutils.ToString(v["vcChatRoomSerialNo"])).Where("is_open = ?", 1).Where("open_tuling = ?", 1).Order("id desc").First(&robotChatRoom)
+		db.Where("chat_room_serial_no = ?", goutils.ToString(v["vcChatRoomSerialNo"])).Where("is_open = ?", 1).Order("id desc").First(&robotChatRoom)
 		//对像是该群机器人
 		if robotChatRoom.ID > 0 && strings.Compare(robotChatRoom.RobotSerialNo, goutils.ToString(v["vcToWxUserSerialNo"])) == 0 {
-			var tulingConfig models.TulingConfig
-			db.Where("uchat_robot_serial_no = ?", robotChatRoom.RobotSerialNo).Where("is_open = ?", 1).First(&tulingConfig)
-			if tulingConfig.ApiKey != "" {
-				data, err := FetchTulingResult(tulingConfig.ApiKey, tulingConfig.ApiSecret, map[string]interface{}{
-					"info":   goutils.ToString(v["vcContent"]),
-					"userid": goutils.ToString(v["vcFromWxUserSerialNo"]),
-				}, robotChatRoom.ChatRoomSerialNo, db, managerDB)
+			if UseWorkTemplate == true {
+				// 目前关键词接口还没有返回时间
+				/*
+					loc, _ := time.LoadLocation("Asia/Shanghai")
+					msgDate, err := time.ParseInLocation("2006-01-02T15:04:05", goutils.ToString(v["dtMsgTime"]), loc)
+					if err != nil {
+						continue
+					}
+				*/
+				//template, err := FetchChatRoomIntelligentChatTemplate(db, robotChatRoom.ChatRoomSerialNo, msgDate)
+				template, err := FetchChatRoomIntelligentChatTemplate(db, robotChatRoom.ChatRoomSerialNo, time.Now())
+				if err != nil {
+					// 如果没有匹配的运营模板，则忽略，读取下一条数据
+					continue
+				}
+				data, err := chatBotClient.SendMessage(template.WorkTemplateId, "tuling", goutils.ToString(v["vcContent"]), robotChatRoom.ChatRoomSerialNo+"-"+goutils.ToString(v["vcFromWxUserSerialNo"]))
+				//log.Fatal(data, err)
 				if err != nil {
 					log.Println(err)
 				} else {
-					rst := make(map[string]interface{}, 0)
-					rst["MerchantNo"] = viper.GetString("merchant_no")
-					rst["vcRelaSerialNo"] = "tuling-" + goutils.RandomString(20)
-					rst["vcChatRoomSerialNo"] = robotChatRoom.ChatRoomSerialNo
-					rst["vcRobotSerialNo"] = robotChatRoom.RobotSerialNo
-					rst["nIsHit"] = "1"
-					rst["vcWeixinSerialNo"] = goutils.ToString(v["vcFromWxUserSerialNo"])
-					rst["Data"] = data
-					b, _ := json.Marshal(rst)
-					tool.Publish("uchat.mysql.message.queue", goutils.ToString(b))
+					switch data.Code {
+					case 1000:
+						// 文字
+						rst := make(map[string]interface{}, 0)
+						rst["MerchantNo"] = viper.GetString("merchant_no")
+						rst["vcRelaSerialNo"] = "chatbot-" + goutils.RandomString(20)
+						rst["vcChatRoomSerialNo"] = robotChatRoom.ChatRoomSerialNo
+						rst["vcRobotSerialNo"] = robotChatRoom.RobotSerialNo
+						rst["nIsHit"] = "1"
+						rst["vcWeixinSerialNo"] = goutils.ToString(v["vcFromWxUserSerialNo"])
+						rst["Data"] = []map[string]string{
+							map[string]string{
+								"nMsgType":   "2001",
+								"msgContent": data.Text,
+								"vcTitle":    "",
+								"vcDesc":     "",
+								"nVoiceTime": "0",
+								"vcHref":     "",
+							},
+						}
+						b, _ := json.Marshal(rst)
+						tool.Publish("uchat.mysql.message.queue", goutils.ToString(b))
+					case 10100:
+						// 文字+地址
+						rst := make(map[string]interface{}, 0)
+						rst["MerchantNo"] = viper.GetString("merchant_no")
+						rst["vcRelaSerialNo"] = "chatbot-" + goutils.RandomString(20)
+						rst["vcChatRoomSerialNo"] = robotChatRoom.ChatRoomSerialNo
+						rst["vcRobotSerialNo"] = robotChatRoom.RobotSerialNo
+						rst["nIsHit"] = "1"
+						rst["vcWeixinSerialNo"] = goutils.ToString(v["vcFromWxUserSerialNo"])
+						rst["Data"] = []map[string]string{
+							map[string]string{
+								"nMsgType":   "2001",
+								"msgContent": data.Text + " " + ShortUrl(data.Url),
+								"vcTitle":    "",
+								"vcDesc":     "",
+								"nVoiceTime": "0",
+								"vcHref":     "",
+							},
+						}
+						b, _ := json.Marshal(rst)
+						tool.Publish("uchat.mysql.message.queue", goutils.ToString(b))
+					}
+				}
+			} else {
+				// old 规则
+				var tulingConfig models.TulingConfig
+				db.Where("uchat_robot_serial_no = ?", robotChatRoom.RobotSerialNo).Where("is_open = ?", 1).First(&tulingConfig)
+				if tulingConfig.ApiKey != "" {
+					data, err := FetchTulingResult(tulingConfig.ApiKey, tulingConfig.ApiSecret, map[string]interface{}{
+						"info":   goutils.ToString(v["vcContent"]),
+						"userid": goutils.ToString(v["vcFromWxUserSerialNo"]),
+					}, robotChatRoom.ChatRoomSerialNo, db, managerDB)
+					if err != nil {
+						log.Println(err)
+					} else {
+						rst := make(map[string]interface{}, 0)
+						rst["MerchantNo"] = viper.GetString("merchant_no")
+						rst["vcRelaSerialNo"] = "tuling-" + goutils.RandomString(20)
+						rst["vcChatRoomSerialNo"] = robotChatRoom.ChatRoomSerialNo
+						rst["vcRobotSerialNo"] = robotChatRoom.RobotSerialNo
+						rst["nIsHit"] = "1"
+						rst["vcWeixinSerialNo"] = goutils.ToString(v["vcFromWxUserSerialNo"])
+						rst["Data"] = data
+						b, _ := json.Marshal(rst)
+						tool.Publish("uchat.mysql.message.queue", goutils.ToString(b))
+					}
 				}
 			}
 		}
@@ -681,11 +829,72 @@ func FetchTulingResult(key, secret string, context map[string]interface{}, chat_
 	}
 }
 
+type CustomKeywordReplyTemplateParams struct {
+	Keywords  []CustomKeywordReplyTemplateParamsKeyword `json:"keywords"`
+	ReplyType string                                    `json:"reply_type"`
+}
+
+type CustomKeywordReplyTemplateParamsKeyword struct {
+	Filter  string `json:"filter"`
+	Keyword string `json:"keyword"`
+}
+
+/*
+  获取商家自定义关键词回复模板
+*/
+func FetchChatRoomCustomKeywordReplyTemplate(db *gorm.DB, chatRoomSerialNo, msg string, org map[string]interface{}) ([]map[string]interface{}, error) {
+	if goutils.ToString(org["nPlatformMsgType"]) == "12" {
+		return nil, fmt.Errorf("robot message don't reply")
+	}
+	template, err := GetChatRoomValidTemplate(db, chatRoomSerialNo, "shop.custom.keyword.reply")
+	if err != nil {
+		return nil, err
+	}
+	var params CustomKeywordReplyTemplateParams
+	err = json.Unmarshal([]byte(template.CmdParams), &params)
+	if err != nil {
+		return nil, err
+	}
+	msg = strings.TrimSpace(msg)
+	hasRegex := false
+	for _, keyword := range params.Keywords {
+		switch strings.ToLower(keyword.Filter) {
+		case "all":
+			if strings.Compare(msg, keyword.Keyword) == 0 {
+				hasRegex = true
+				break
+			}
+		case "like":
+			if strings.Index(msg, keyword.Keyword) >= 0 {
+				hasRegex = true
+				break
+			}
+		default:
+		}
+	}
+	if hasRegex == true {
+		var data []map[string]interface{}
+		err := json.Unmarshal([]byte(template.CmdReply), &data)
+		if err != nil {
+			return nil, err
+		} else {
+			if strings.ToLower(params.ReplyType) == "all" {
+				return data, nil
+			} else {
+				rnd := rand.Intn(len(data))
+				return []map[string]interface{}{data[rnd]}, nil
+			}
+		}
+	} else {
+		return nil, fmt.Errorf("no regex msg")
+	}
+}
+
 /*
   同步群成员时时消息回调
   支持重复调用
 */
-func SyncChatMessageCallback(b []byte, db *gorm.DB, managerDB *gorm.DB) error {
+func SyncChatMessageCallback(b []byte, db *gorm.DB, managerDB *gorm.DB, tool *utils.ReceiveTool) error {
 	var rst map[string]interface{}
 	err := json.Unmarshal(b, &rst)
 	if err != nil {
@@ -714,23 +923,43 @@ func SyncChatMessageCallback(b []byte, db *gorm.DB, managerDB *gorm.DB) error {
 		}
 		var robotChatRoom models.RobotChatRoom
 		db.Where("chat_room_serial_no = ?", goutils.ToString(v["vcChatRoomSerialNo"])).Where("is_open = ?", 1).Order("id desc").First(&robotChatRoom)
-		if robotChatRoom.MyId != "" { //有绑定供应商
-			err := SendShopCustomSearch(robotChatRoom.MyId, robotChatRoom.SubId, robotChatRoom.ChatRoomSerialNo, content, db)
-			//如果没有自定义配置
+		if UseWorkTemplate == true {
+			data, err := FetchChatRoomCustomKeywordReplyTemplate(db, robotChatRoom.ChatRoomSerialNo, content, v)
 			if err != nil {
-				//pid, err := FetchAlimamaSearchPid(robotChatRoom.MyId, robotChatRoom.SubId, managerDB)
-				domain, err := FetchTuikeasySearchDomain(robotChatRoom.MyId, robotChatRoom.SubId, managerDB)
+				// 如果没有匹配的运营模板，则忽略，读取下一条数据
+				continue
+			}
+			// 补充商户号和发送流水号
+			rst := make(map[string]interface{}, 0)
+			rst["MerchantNo"] = viper.GetString("merchant_no")
+			rst["vcRelaSerialNo"] = "custom-keyword-reply-" + goutils.RandomString(20)
+			rst["vcChatRoomSerialNo"] = robotChatRoom.ChatRoomSerialNo
+			rst["vcRobotSerialNo"] = robotChatRoom.RobotSerialNo
+			rst["vcWeixinSerialNo"] = ""
+			rst["nIsHit"] = "1"
+			rst["Data"] = data
+			b, _ := json.Marshal(rst)
+			log.Printf("%s\n", b)
+			tool.Publish("uchat.mysql.message.queue", goutils.ToString(b))
+		} else {
+			if robotChatRoom.MyId != "" { //有绑定供应商
+				err := SendShopCustomSearch(robotChatRoom.MyId, robotChatRoom.SubId, robotChatRoom.ChatRoomSerialNo, content, db)
+				//如果没有自定义配置
 				if err != nil {
-					log.Println(err)
-					continue
-				}
-				//err = SendAlimamProductSearch(robotChatRoom.MyId, pid, robotChatRoom.ChatRoomSerialNo, content, db)
-				err = SendTuikeasyProductSearch(robotChatRoom.MyId, domain, robotChatRoom.ChatRoomSerialNo, content, db)
-				//如果已经匹配关键字则不用再去搜索优惠链接
-				if err != nil {
-					//err = SendAlimamCouponSearch(robotChatRoom.MyId, pid, robotChatRoom.ChatRoomSerialNo, content, db)
-					err = SendTuikeasyCouponSearch(robotChatRoom.MyId, domain, robotChatRoom.ChatRoomSerialNo, content, db)
-					log.Println(err)
+					//pid, err := FetchAlimamaSearchPid(robotChatRoom.MyId, robotChatRoom.SubId, managerDB)
+					domain, err := FetchTuikeasySearchDomain(robotChatRoom.MyId, robotChatRoom.SubId, managerDB)
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+					//err = SendAlimamProductSearch(robotChatRoom.MyId, pid, robotChatRoom.ChatRoomSerialNo, content, db)
+					err = SendTuikeasyProductSearch(robotChatRoom.MyId, domain, robotChatRoom.ChatRoomSerialNo, content, db)
+					//如果已经匹配关键字则不用再去搜索优惠链接
+					if err != nil {
+						//err = SendAlimamCouponSearch(robotChatRoom.MyId, pid, robotChatRoom.ChatRoomSerialNo, content, db)
+						err = SendTuikeasyCouponSearch(robotChatRoom.MyId, domain, robotChatRoom.ChatRoomSerialNo, content, db)
+						log.Println(err)
+					}
 				}
 			}
 		}

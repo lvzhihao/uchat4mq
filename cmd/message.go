@@ -74,12 +74,20 @@ var messageCmd = &cobra.Command{
 				rmqtool.Log.Error("process error", zap.Error(err), zap.Any("msg", msg))
 			} else {
 				for _, v := range ret {
+					ext := make(map[string]interface{}, 0)
 					robotChatRoom, err := models.FindRobotChatRoomByChatRoom(db, v.ChatRoomSerialNo)
 					if err == nil {
-						v.ExtraData = map[string]interface{}{
-							"robotChatRoomModel": robotChatRoom,
-						}
-					} // 添加用户关联数据
+						ext["robotChatRoomModel"] = robotChatRoom
+					} // 添加机器人群信息
+					chatRoom, err := models.FindChatRoom(db, v.ChatRoomSerialNo)
+					if err == nil {
+						ext["chatRoomModel"] = chatRoom
+					} // 添加群信息
+					member, err := models.FindChatRoomMember(db, v.ChatRoomSerialNo, v.WxUserSerialNo)
+					if err == nil {
+						ext["fromMemberModel"] = member
+					} // 添加发送人信息
+					v.ExtraData = ext
 					b, err := json.Marshal(v)
 					if err != nil {
 						rmqtool.Log.Error("json marshal error", zap.Error(err))

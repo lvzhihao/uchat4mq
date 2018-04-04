@@ -23,12 +23,14 @@ package cmd
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo"
 	"github.com/lvzhihao/goutils"
 	"github.com/lvzhihao/uchatlib"
 	"github.com/lvzhihao/zhiya/apis"
+	"github.com/lvzhihao/zhiya/chatbot"
 	"github.com/lvzhihao/zhiya/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -66,6 +68,20 @@ var apiCmd = &cobra.Command{
 		apis.DB = db
 		apis.Client = client
 		apis.Tool = tool
+		if viper.GetString("amr_convert_server") != "" {
+			apis.AmrConvertServer = viper.GetString("amr_convert_server")
+		}
+
+		// chatbot
+		apis.ChatBotClient = chatbot.NewClient(&chatbot.ClientConfig{
+			ApiHost:        viper.GetString("chatbot_api_host"),
+			MerchantNo:     viper.GetString("chatbot_merchant_no"),
+			MerchantSecret: viper.GetString("chatbot_merchant_secret"),
+		})
+
+		// check api v2 backend token
+		app.Use(CheckBackendToken)
+
 		// action
 		app.POST("/api/ping", func(ctx echo.Context) error {
 			return ctx.String(http.StatusOK, "pong")
@@ -80,12 +96,39 @@ var apiCmd = &cobra.Command{
 		app.POST("/api/pyrobotloginqr", apis.PyRobotLoginQr)
 		app.POST("/api/chatroomkicking", apis.ChatRoomKicking)
 		app.POST("/api/applychatroomqrcode", apis.ApplyChatRoomQrCode)
-		// api v2
+		// api v2 support for prism
+
 		app.POST("/api/v2/sendmessage", apis.SendMessageV2)
-		app.GET("/api/v2/robot/join", apis.GetRobotJoinListv2)
+		app.GET("/api/v2/robot/join", apis.GetRobotJoinList)
+		app.POST("/api/v2/robot/join/delete", apis.DeleteRobotJoin)
+		app.PUT("/api/v2/robot/chatroom/open", apis.OpenChatRoom)
+		app.POST("/api/v2/robot/info", apis.UpdateRobotInfo)
+		app.POST("/api/v2/chatroom/over", apis.OverChatRoomV2)
+		app.GET("/api/v2/cmd/type", apis.CmdTypeList)
+		app.PUT("/api/v2/work/template", apis.CreateWorkTemplate)
+		app.POST("/api/v2/work/template", apis.UpdateWorkTemplate)
+		app.GET("/api/v2/work/template/list", apis.WorkTemplateList)
+		app.GET("/api/v2/work/template", apis.WorkTemplate)
+		app.POST("/api/v2/work/template/default", apis.SetWorkTemplateDefault)
+		app.POST("/api/v2/work/template/apply", apis.ApplyWorkTemplate)
+		app.GET("/api/v2/chatroom/templates", apis.GetChatRoomTemplates)
+		app.GET("/api/v2/robot/valid/one", apis.GetValidRobot)
+		app.POST("/api/v2/robot/valid", apis.UpdateRobotExpireTime)
+		app.GET("/api/v2/amr/convert", apis.AmrConver)
 		// graceful shutdown
 		goutils.EchoStartWithGracefulShutdown(app, ":8079")
 	},
+}
+
+func CheckBackendToken(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if strings.Index(c.Path(), "/api/v2") == 0 {
+			if viper.GetString("api_v2_backend_token") == "" || c.QueryParam("backend_token") != viper.GetString("api_v2_backend_token") {
+				return c.NoContent(http.StatusUnauthorized)
+			}
+		}
+		return next(c)
+	}
 }
 
 func init() {
