@@ -20,11 +20,7 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/lvzhihao/goutils"
-  
+ 
 [[constraint]]
   branch = "master"
   name = "github.com/lvzhihao/go-rmqtool"
@@ -44,10 +40,6 @@
 [[constraint]]
   branch = "master"
   name = "github.com/streadway/amqp"
-
-[[constraint]]
-  name = "github.com/vmihailenco/msgpack"
-  version = "3.2.0"
 
 [[constraint]]
   name = "go.uber.org/zap"
