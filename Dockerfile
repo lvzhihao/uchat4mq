@@ -1,4 +1,4 @@
-FROM golang:1.9-alpine as builder
+FROM golang:1.12-alpine as builder
 WORKDIR /go/src/github.com/lvzhihao/uchat4mq
 COPY . . 
 RUN apk add --update gcc g++ git && \
